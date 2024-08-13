@@ -1,0 +1,19 @@
+##
+# builds.yaml - Build workflow for testing software builds.
+# Copyright 2021-2022 Adequate Systems, LLC. All Rights Reserved.
+#
+
+name: Builds
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev] # MUST be a subset of the branches above
+jobs:
+  mochimo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Make Mochimo Install
+        run: make install-mochimo -C ${{ github.workspace }}
