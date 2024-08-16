@@ -1,5 +1,6 @@
 import requests
 import json
+import time
 
 url = "http://localhost:8080/network/status"
 
@@ -11,8 +12,14 @@ payload = {
     }
 }
 
+# start timer
+start = time.time()
+
 # Send the POST request
 response = requests.post(url, data=json.dumps(payload), headers={"Content-Type": "application/json"})
+
+# end timer
+end = time.time()
 
 # Print the response
 if response.status_code == 200:
@@ -21,3 +28,6 @@ if response.status_code == 200:
 else:
     print(f"Error: {response.status_code}")
     print(response.text)
+
+# Print the time taken
+print(f"Time taken: {end - start} seconds")

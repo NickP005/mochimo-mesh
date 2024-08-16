@@ -1,5 +1,11 @@
 package main
 
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+)
+
 type NetworkIdentifier struct {
 	Blockchain string `json:"blockchain"`
 	Network    string `json:"network"`
@@ -26,7 +32,8 @@ type Operation struct {
 	Type    string `json:"type"`
 	Status  string `json:"status"`
 	Account struct {
-		Address string `json:"address"`
+		Address  string                 `json:"address"`
+		Metadata map[string]interface{} `json:"metadata,omitempty"`
 	} `json:"account"`
 	Amount struct {
 		Value    string `json:"value"`
@@ -85,6 +92,44 @@ type NetworkOptionsResponse struct {
 		MempoolCoins        bool   `json:"mempool_coins"`
 		TransactionHashCase string `json:"transaction_hash_case"`
 	} `json:"allow"`
+}
+
+// check that the request is a post request with  "network_identifier": { "blockchain": "mochimo", "network": "mainnet" }
+
+func checkIdentifier(r *http.Request) (error, BlockRequest) {
+	if r.Method != http.MethodPost {
+		return fmt.Errorf("Invalid request method"), BlockRequest{}
+	}
+	var req BlockRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return fmt.Errorf("Invalid request body"), BlockRequest{}
+	}
+	if req.NetworkIdentifier.Blockchain != "mochimo" || req.NetworkIdentifier.Network != "mainnet" {
+		return fmt.Errorf("Invalid network identifier"), BlockRequest{}
+	}
+	return nil, req
+}
+
+func giveError(w http.ResponseWriter, code int) {
+	var message string
+	switch code {
+	case 1:
+		message = "Invalid request"
+	case 2:
+		message = "Internal error"
+	}
+	response := struct {
+		Code      int    `json:"code"`
+		Message   string `json:"message"`
+		Retriable bool   `json:"retriable"`
+	}{
+		Code:      code,
+		Message:   message,
+		Retriable: code == 2,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 /*

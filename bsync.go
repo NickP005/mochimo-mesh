@@ -10,6 +10,7 @@ import (
 )
 
 const REFRESH_SYNC_INTERVAL = 30
+const TFILE_PATH = "mochimo/bin/d/tfile.dat"
 
 func Init() {
 	// call sync until it is successful, every 10 seconds
@@ -50,6 +51,14 @@ func Sync() bool {
 	}
 	Globals.GenesisBlockHash = first_trailer.Bhash
 
+	// Load the last 500 block hashes to block number map
+	blockmap, err := readBlockMap(500, TFILE_PATH)
+	if err != nil {
+		log.Default().Println("Sync() failed: Error reading block map")
+		return false
+	}
+	Globals.HashToBlockNumber = blockmap
+
 	err = RefreshSync()
 	if err != nil {
 		log.Default().Println("Sync() failed: Error refreshing sync")
@@ -76,6 +85,10 @@ func RefreshSync() error {
 		log.Default().Println("Sync() failed: Error fetching latest block number")
 		return error
 	}
+	same := latest_block == Globals.LatestBlockNum
+	if same {
+		return nil
+	}
 	Globals.LatestBlockNum = latest_block
 
 	// Set the hash of the latest block and the Solve Timestamp (Stime)
@@ -86,6 +99,16 @@ func RefreshSync() error {
 	}
 	Globals.LatestBlockHash = latest_trailer.Bhash
 	Globals.CurrentBlockUnixMilli = uint64(binary.LittleEndian.Uint32(latest_trailer.Stime[:])) * 1000
+
+	// get the last 100 block hashes and add them to the block map
+	blockmap, error := readBlockMap(100, TFILE_PATH)
+	if error != nil {
+		log.Default().Println("Sync() failed: Error reading block map")
+		return error
+	}
+	for k, v := range blockmap {
+		Globals.HashToBlockNumber[k] = v
+	}
 
 	return nil
 }

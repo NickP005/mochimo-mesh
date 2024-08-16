@@ -11,7 +11,7 @@ func main() {
 	Init()
 
 	r := mux.NewRouter()
-	//r.HandleFunc("/block", blockHandler).Methods("POST")
+	r.HandleFunc("/block", blockHandler).Methods("POST")
 	r.HandleFunc("/network/list", networkListHandler).Methods("POST")
 	r.HandleFunc("/network/status", networkStatusHandler).Methods("POST")
 	r.HandleFunc("/network/options", networkOptionsHandler).Methods("POST")
