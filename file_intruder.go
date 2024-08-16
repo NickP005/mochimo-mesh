@@ -86,6 +86,10 @@ func getBlockInDataFolder(bhash string) (go_mcminterface.Block, error) {
 		return go_mcminterface.Block{}, err
 	}
 
+	if len(block_bytes) <= 164 {
+		return go_mcminterface.Block{}, fmt.Errorf("invalid block bytes")
+	}
+
 	// convert the bytes to block
 	return go_mcminterface.BlockFromBytes(block_bytes), nil
 }
