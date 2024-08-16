@@ -239,7 +239,7 @@ func getBlock(blockIdentifier BlockIdentifier) (Block, error) {
 			if err != nil {
 				return Block{}, err
 			}
-			bdata_hexhash := hex.EncodeToString(blockData.Trailer.Bhash[:])
+			bdata_hexhash := "0x" + hex.EncodeToString(blockData.Trailer.Bhash[:])
 			if bdata_hexhash != blockIdentifier.Hash {
 				return Block{}, fmt.Errorf("block hash mismatch")
 			}
