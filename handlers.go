@@ -1,12 +1,5 @@
 package main
 
-import (
-	"encoding/json"
-	"net/http"
-
-	"github.com/NickP005/go_mcminterface"
-)
-
 type NetworkIdentifier struct {
 	Blockchain string `json:"blockchain"`
 	Network    string `json:"network"`
@@ -74,18 +67,27 @@ type NetworkStatusResponse struct {
 
 type NetworkOptionsResponse struct {
 	Version struct {
-		RosettaVersion string `json:"rosetta_version"`
-		NodeVersion    string `json:"node_version"`
+		RosettaVersion    string `json:"rosetta_version"`
+		NodeVersion       string `json:"node_version"`
+		MiddlewareVersion string `json:"middleware_version"`
 	} `json:"version"`
 	Allow struct {
+		OperationStatuses []struct {
+			Status     string `json:"status"`
+			Successful bool   `json:"successful"`
+		} `json:"operation_statuses"`
 		OperationTypes []string `json:"operation_types"`
 		Errors         []struct {
-			Code    int    `json:"code"`
-			Message string `json:"message"`
+			Code      int    `json:"code"`
+			Message   string `json:"message"`
+			Retriable bool   `json:"retriable"`
 		} `json:"errors"`
+		MempoolCoins        bool   `json:"mempool_coins"`
+		TransactionHashCase string `json:"transaction_hash_case"`
 	} `json:"allow"`
 }
 
+/*
 func blockHandler(w http.ResponseWriter, r *http.Request) {
 	var req BlockRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -107,4 +109,4 @@ func blockHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewEncoder(w).Encode(response)
 }
-
+*/
