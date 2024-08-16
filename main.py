@@ -1,16 +1,13 @@
 import requests
 import json
 
-url = "http://localhost:8080/block"
+url = "http://localhost:8080/network/status"
 
 # Define the request payload
 payload = {
     "network_identifier": {
         "blockchain": "mochimo",
         "network": "mainnet"
-    },
-    "block_identifier": {
-        "index": 607885  # Replace with the actual block index you want to query
     }
 }
 

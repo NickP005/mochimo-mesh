@@ -3,7 +3,7 @@ module mochimomesh
 go 1.22.5
 
 require (
-	github.com/NickP005/go_mcminterface v0.1.2
+	github.com/NickP005/go_mcminterface v0.1.7
 	github.com/gorilla/mux v1.8.1
 )
 
