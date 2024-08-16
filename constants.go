@@ -55,4 +55,5 @@ type GlobalsType struct {
 	LatestBlockHash       [32]byte
 	GenesisBlockHash      [32]byte
 	CurrentBlockUnixMilli uint64
+	HashToBlockNumber     map[string]uint32
 }

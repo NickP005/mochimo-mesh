@@ -25,6 +25,12 @@ func networkListHandler(w http.ResponseWriter, r *http.Request) {
 // /network/status
 // TODO: Add peers
 func networkStatusHandler(w http.ResponseWriter, r *http.Request) {
+	err, _ := checkIdentifier(r)
+	if err != nil {
+		giveError(w, 1)
+		return
+	}
+
 	// peers are the ips
 	//var peers []string = go_mcminterface.Settings.IPs
 
@@ -43,7 +49,14 @@ func networkStatusHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // /network/options
+// /network/options
 func networkOptionsHandler(w http.ResponseWriter, r *http.Request) {
+	// checkIdentifier
+	err, _ := checkIdentifier(r)
+	if err != nil {
+		giveError(w, 1)
+		return
+	}
 	response := NetworkOptionsResponse{}
 
 	// Set the version details
@@ -61,7 +74,7 @@ func networkOptionsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Define the operation types allowed by the network
-	response.Allow.OperationTypes = []string{"TRANSFER"}
+	response.Allow.OperationTypes = []string{"TRANSFER", "REWARD"}
 
 	// Define possible errors that may occur
 	response.Allow.Errors = []struct {
