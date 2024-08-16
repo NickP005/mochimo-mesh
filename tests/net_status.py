@@ -2,7 +2,7 @@ import requests
 import json
 import time
 
-url = "http://localhost:8080/network/status"
+url = "http://192.168.1.75:8080/network/status"
 
 # Define the request payload
 payload = {

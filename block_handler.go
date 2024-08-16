@@ -234,6 +234,7 @@ func getBlock(blockIdentifier BlockIdentifier) (Block, error) {
 				}
 				return Block{}, err
 			}
+			fmt.Println("Block found in the block map", blockNumber)
 			blockData, err = go_mcminterface.QueryBlockFromNumber(uint64(blockNumber))
 			if err != nil {
 				return Block{}, err

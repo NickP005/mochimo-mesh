@@ -3,7 +3,7 @@ import json
 
 def get_block(block_index=None, block_hash=None):
     # Define the API endpoint
-    url = "http://localhost:8080/block"
+    url = "http://192.168.1.75:8080/block"
     
     # Construct the request payload
     payload = {
@@ -12,8 +12,8 @@ def get_block(block_index=None, block_hash=None):
             "network": "mainnet"
         },
         "block_identifier": {
-            "index": 0,
-            "hash": "0xea8cba630d5bf97df578f26b6e0041e9f7ed264434b017a0a9ab5c085eb95bf7"
+            "index": None,
+            "hash": "0x46b7a0d3cc9e274ded3b940337d70bc045fb62440b638c61f8806ea11c198a13"
         },
     }
 
