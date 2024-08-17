@@ -84,6 +84,8 @@ func networkOptionsHandler(w http.ResponseWriter, r *http.Request) {
 	}{
 		{Code: 1, Message: "Invalid request", Retriable: false},
 		{Code: 2, Message: "Internal error", Retriable: true},
+		{Code: 3, Message: "Transaction not found", Retriable: false},
+		{Code: 4, Message: "Account not found", Retriable: true},
 	}
 
 	response.Allow.MempoolCoins = false
