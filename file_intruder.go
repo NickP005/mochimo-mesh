@@ -113,3 +113,50 @@ func saveBlockInDataFolder(block go_mcminterface.Block) error {
 
 	return nil
 }
+
+// copied from go_mcminterface
+func bBodyFromBytes(bytes []byte) []go_mcminterface.TXQENTRY {
+	var body []go_mcminterface.TXQENTRY
+
+	many_tx := len(bytes) / 8824
+
+	for i := 0; i < many_tx; i++ {
+		var tx go_mcminterface.TXQENTRY
+		copy(tx.Src_addr[:], bytes[i*8824:i*8824+2208])
+		copy(tx.Dst_addr[:], bytes[i*8824+2208:i*8824+4416])
+		copy(tx.Chg_addr[:], bytes[i*8824+4416:i*8824+6624])
+		copy(tx.Send_total[:], bytes[i*8824+6624:i*8824+6632])
+		copy(tx.Change_total[:], bytes[i*8824+6632:i*8824+6640])
+		copy(tx.Tx_fee[:], bytes[i*8824+6640:i*8824+6648])
+		copy(tx.Tx_sig[:], bytes[i*8824+6648:i*8824+8792])
+		copy(tx.Tx_id[:], bytes[i*8824+8792:i*8824+8824])
+		body = append(body, tx)
+	}
+
+	return body
+}
+
+func getMempool(mempool_path string) ([]go_mcminterface.TXQENTRY, error) {
+	// open the file
+	file, err := os.Open(mempool_path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	//print file size
+	fi, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	// read the file
+	mempool_bytes := make([]byte, fi.Size())
+	_, err = file.Read(mempool_bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	// convert the bytes to mempool using the bBodyFromBytes
+	return bBodyFromBytes(mempool_bytes), nil
+}

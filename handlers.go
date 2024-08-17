@@ -117,6 +117,10 @@ func giveError(w http.ResponseWriter, code int) {
 		message = "Invalid request"
 	case 2:
 		message = "Internal error"
+	case 3:
+		message = "Transaction not found"
+	case 4:
+		message = "Account not found"
 	}
 	response := struct {
 		Code      int    `json:"code"`
@@ -125,7 +129,7 @@ func giveError(w http.ResponseWriter, code int) {
 	}{
 		Code:      code,
 		Message:   message,
-		Retriable: code == 2,
+		Retriable: code == 2 || code == 4,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

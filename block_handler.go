@@ -78,7 +78,7 @@ type Currency struct {
 // Example constant for the Mochimo currency
 var MCMCurrency = Currency{
 	Symbol:   "MCM",
-	Decimals: 8,
+	Decimals: 9,
 }
 
 type OperationIdentifier struct {
@@ -87,34 +87,9 @@ type OperationIdentifier struct {
 	// NetworkIndex *int `json:"network_index,omitempty"`
 }
 
-func getTransactionsFromBBody(block go_mcminterface.Block) []Transaction {
-	transactions := []Transaction{}
-
-	// Add miner reward operation
-	if block.Header.Mreward > 0 {
-		minerRewardOperation := Operation{
-			OperationIdentifier: OperationIdentifier{
-				Index: 0,
-			},
-			Type:    "REWARD",
-			Status:  "SUCCESS",
-			Account: getAccountFromAddress(go_mcminterface.WotsAddressFromBytes(block.Header.Maddr[:])),
-			Amount: Amount{
-				Value:    fmt.Sprintf("%d", block.Header.Mreward),
-				Currency: MCMCurrency,
-			},
-		}
-		// Append miner reward operation as a standalone transaction
-		transactions = append(transactions, Transaction{
-			TransactionIdentifier: TransactionIdentifier{
-				Hash: fmt.Sprintf("0x%x", block.Trailer.Bhash[:]),
-			},
-			Operations: []Operation{minerRewardOperation},
-		})
-	}
-
-	// Process body transactions
-	for _, tx := range block.Body {
+func getTransactionsFromBlockBody(txentries []go_mcminterface.TXQENTRY) []Transaction {
+	var transactions []Transaction
+	for _, tx := range txentries {
 		operations := []Operation{}
 
 		src := go_mcminterface.WotsAddressFromBytes(tx.Src_addr[:])
@@ -209,6 +184,68 @@ func getTransactionsFromBBody(block go_mcminterface.Block) []Transaction {
 	return transactions
 }
 
+func getTransactionsFromBlock(block go_mcminterface.Block) []Transaction {
+	transactions := []Transaction{}
+
+	// Add miner reward operation
+	if block.Header.Mreward > 0 {
+		minerRewardOperation := Operation{
+			OperationIdentifier: OperationIdentifier{
+				Index: 0,
+			},
+			Type:    "REWARD",
+			Status:  "SUCCESS",
+			Account: getAccountFromAddress(go_mcminterface.WotsAddressFromBytes(block.Header.Maddr[:])),
+			Amount: Amount{
+				Value:    fmt.Sprintf("%d", block.Header.Mreward),
+				Currency: MCMCurrency,
+			},
+		}
+		// Append miner reward operation as a standalone transaction
+		transactions = append(transactions, Transaction{
+			TransactionIdentifier: TransactionIdentifier{
+				Hash: fmt.Sprintf("0x%x", block.Trailer.Bhash[:]),
+			},
+			Operations: []Operation{minerRewardOperation},
+		})
+	}
+
+	// Process body transactions
+	transactions = append(transactions, getTransactionsFromBlockBody(block.Body)...)
+
+	return transactions
+}
+
+func getBlockByHexHash(hexHash string) (go_mcminterface.Block, error) {
+	blockData, err := getBlockInDataFolder(hexHash)
+	if err != nil {
+		fmt.Println("Block not found in data folder, fetching from the network", err)
+		// check in the Globals.HashToBlockNumber map the block number
+		blockNumber, ok := Globals.HashToBlockNumber[hexHash]
+		if !ok {
+			fmt.Println("Block not found in the block map")
+			// print the map hash as hex, : int
+			for k, v := range Globals.HashToBlockNumber {
+				fmt.Println("Hash: ", k, "Block Number: ", v)
+			}
+			return go_mcminterface.Block{}, err
+		}
+		fmt.Println("Block found in the block map", blockNumber)
+		blockData, err = go_mcminterface.QueryBlockFromNumber(uint64(blockNumber))
+		if err != nil {
+			return go_mcminterface.Block{}, err
+		}
+		bdata_hexhash := "0x" + hex.EncodeToString(blockData.Trailer.Bhash[:])
+		if bdata_hexhash != hexHash {
+			return go_mcminterface.Block{}, fmt.Errorf("block hash mismatch")
+		}
+		// backup the block in the data folder
+		saveBlockInDataFolder(blockData)
+	}
+
+	return blockData, nil
+}
+
 func getBlock(blockIdentifier BlockIdentifier) (Block, error) {
 	var blockData go_mcminterface.Block
 	var err error
@@ -221,30 +258,9 @@ func getBlock(blockIdentifier BlockIdentifier) (Block, error) {
 		}
 	} else if blockIdentifier.Hash != "" {
 		// first of all check if it's archived in our data folder
-		blockData, err = getBlockInDataFolder(blockIdentifier.Hash)
+		blockData, err = getBlockByHexHash(blockIdentifier.Hash)
 		if err != nil {
-			fmt.Println("Block not found in data folder, fetching from the network", err)
-			// check in the Globals.HashToBlockNumber map the block number
-			blockNumber, ok := Globals.HashToBlockNumber[blockIdentifier.Hash]
-			if !ok {
-				fmt.Println("Block not found in the block map")
-				// print the map hash as hex, : int
-				for k, v := range Globals.HashToBlockNumber {
-					fmt.Println("Hash: ", k, "Block Number: ", v)
-				}
-				return Block{}, err
-			}
-			fmt.Println("Block found in the block map", blockNumber)
-			blockData, err = go_mcminterface.QueryBlockFromNumber(uint64(blockNumber))
-			if err != nil {
-				return Block{}, err
-			}
-			bdata_hexhash := "0x" + hex.EncodeToString(blockData.Trailer.Bhash[:])
-			if bdata_hexhash != blockIdentifier.Hash {
-				return Block{}, fmt.Errorf("block hash mismatch")
-			}
-			// backup the block in the data folder
-			saveBlockInDataFolder(blockData)
+			return Block{}, err
 		}
 	} else {
 		blockData, err = go_mcminterface.QueryBlockFromNumber(0)
@@ -268,7 +284,70 @@ func getBlock(blockIdentifier BlockIdentifier) (Block, error) {
 	}
 
 	// Populate transactions
-	block.Transactions = getTransactionsFromBBody(blockData)
+	block.Transactions = getTransactionsFromBlock(blockData)
 
 	return block, nil
+}
+
+type BlockTransactionRequest struct {
+	NetworkIdentifier     NetworkIdentifier     `json:"network_identifier"`
+	BlockIdentifier       BlockIdentifier       `json:"block_identifier"`
+	TransactionIdentifier TransactionIdentifier `json:"transaction_identifier"`
+}
+
+type BlockTransactionResponse struct {
+	Transaction Transaction `json:"transaction"`
+}
+
+func blockTransactionHandler(w http.ResponseWriter, r *http.Request) {
+	// Check for the correct network identifier
+	fmt.Println("Checking identifiers")
+	if r.Method != http.MethodPost {
+		fmt.Println("Invalid request method")
+		giveError(w, 1)
+		return
+	}
+	var req BlockTransactionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		fmt.Println("Error decoding request", err)
+		giveError(w, 1) // Invalid request body
+		return
+	}
+	if req.NetworkIdentifier.Blockchain != "mochimo" || req.NetworkIdentifier.Network != "mainnet" {
+		fmt.Println("Invalid network identifier")
+		giveError(w, 1)
+		return
+	}
+
+	// Fetch the block using the block identifier from the request
+	block, err := getBlock(req.BlockIdentifier)
+	if err != nil {
+		fmt.Println("Error in getBlock", err)
+		giveError(w, 2) // Internal error
+		return
+	}
+
+	// Search for the transaction within the block
+	var foundTransaction *Transaction
+	for _, tx := range block.Transactions {
+		if tx.TransactionIdentifier.Hash == req.TransactionIdentifier.Hash {
+			foundTransaction = &tx
+			break
+		}
+	}
+
+	if foundTransaction == nil {
+		fmt.Println("Transaction not found")
+		giveError(w, 3) // Transaction not found error
+		return
+	}
+
+	// Create the response
+	response := BlockTransactionResponse{
+		Transaction: *foundTransaction,
+	}
+
+	// Set headers and encode the response as JSON
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }

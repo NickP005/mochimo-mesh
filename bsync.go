@@ -51,8 +51,8 @@ func Sync() bool {
 	}
 	Globals.GenesisBlockHash = first_trailer.Bhash
 
-	// Load the last 500 block hashes to block number map
-	blockmap, err := readBlockMap(500, TFILE_PATH)
+	// Load the last 800 block hashes to block number map
+	blockmap, err := readBlockMap(800, TFILE_PATH)
 	if err != nil {
 		log.Default().Println("Sync() failed: Error reading block map")
 		return false
