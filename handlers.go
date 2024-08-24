@@ -96,66 +96,48 @@ type NetworkOptionsResponse struct {
 
 // check that the request is a post request with  "network_identifier": { "blockchain": "mochimo", "network": "mainnet" }
 
-func checkIdentifier(r *http.Request) (error, BlockRequest) {
+func checkIdentifier(r *http.Request) (BlockRequest, error) {
 	if r.Method != http.MethodPost {
-		return fmt.Errorf("Invalid request method"), BlockRequest{}
+		return BlockRequest{}, fmt.Errorf("invalid request method")
 	}
 	var req BlockRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return fmt.Errorf("Invalid request body"), BlockRequest{}
+		return BlockRequest{}, fmt.Errorf("invalid request body")
 	}
 	if req.NetworkIdentifier.Blockchain != "mochimo" || req.NetworkIdentifier.Network != "mainnet" {
-		return fmt.Errorf("Invalid network identifier"), BlockRequest{}
+		return BlockRequest{}, fmt.Errorf("invalid network identifier")
 	}
-	return nil, req
+	return req, nil
 }
 
-func giveError(w http.ResponseWriter, code int) {
-	var message string
-	switch code {
-	case 1:
-		message = "Invalid request"
-	case 2:
-		message = "Internal error"
-	case 3:
-		message = "Transaction not found"
-	case 4:
-		message = "Account not found"
-	}
+// enum error codes
+type APIError struct {
+	Code      int    `json:"code"`
+	Message   string `json:"message"`
+	Retriable bool   `json:"retriable"`
+}
+
+var (
+	ErrInvalidRequest       = APIError{1, "Invalid request", false}
+	ErrInternalError        = APIError{2, "Internal general error", true}
+	ErrTXNotFound           = APIError{3, "Transaction not found", true}
+	ErrAccountNotFound      = APIError{4, "Account not found", true}
+	ErrWrongNetwork         = APIError{5, "Wrong network identifier", false}
+	ErrBlockNotFound        = APIError{6, "Block not found", true}
+	ErrWrongCurveType       = APIError{7, "Wrong curve type", false}
+	ErrInvalidAccountFormat = APIError{8, "Invalid account format", false}
+)
+
+func giveError(w http.ResponseWriter, err APIError) {
 	response := struct {
 		Code      int    `json:"code"`
 		Message   string `json:"message"`
 		Retriable bool   `json:"retriable"`
 	}{
-		Code:      code,
-		Message:   message,
-		Retriable: code == 2 || code == 4,
+		err.Code,
+		err.Message,
+		err.Retriable,
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
-
-/*
-func blockHandler(w http.ResponseWriter, r *http.Request) {
-	var req BlockRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	block, err := getBlock(req.BlockIdentifier)
-	if err != nil {
-		response := BlockResponse{
-			Error: err.Error(),
-		}
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	response := BlockResponse{
-		Block: block,
-	}
-	json.NewEncoder(w).Encode(response)
-}
-*/

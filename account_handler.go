@@ -23,7 +23,7 @@ type AccountBalanceResponse struct {
 func accountBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	var req AccountBalanceRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		giveError(w, 1)
+		giveError(w, ErrInvalidRequest)
 		return
 	}
 
@@ -34,12 +34,12 @@ func accountBalanceHandler(w http.ResponseWriter, r *http.Request) {
 		// Resolve the tag to a WOTS address
 		tag, err := hex.DecodeString(req.AccountIdentifier.Address[2:])
 		if err != nil {
-			giveError(w, 1)
+			giveError(w, ErrInvalidAccountFormat)
 			return
 		}
 		wotsAddr, err := go_mcminterface.QueryTagResolve(tag)
 		if err != nil {
-			giveError(w, 4)
+			giveError(w, ErrAccountNotFound)
 			return
 		}
 		balance = wotsAddr.GetAmount()
@@ -50,11 +50,11 @@ func accountBalanceHandler(w http.ResponseWriter, r *http.Request) {
 
 		balance, err = go_mcminterface.QueryBalance(wotsAddr)
 		if err != nil {
-			giveError(w, 4)
+			giveError(w, ErrAccountNotFound)
 			return
 		}
 	} else {
-		giveError(w, 1)
+		giveError(w, ErrInvalidAccountFormat)
 		return
 	}
 

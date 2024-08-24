@@ -31,9 +31,9 @@ type MempoolResponse struct {
 func mempoolHandler(w http.ResponseWriter, r *http.Request) {
 	// Check for the correct network identifier
 	fmt.Println("Checking identifiers")
-	if err, _ := checkIdentifier(r); err != nil {
+	if _, err := checkIdentifier(r); err != nil {
 		fmt.Println("Error in checkIdentifier", err)
-		giveError(w, 1)
+		giveError(w, ErrWrongNetwork) // Wrong network identifier
 		return
 	}
 
@@ -41,7 +41,7 @@ func mempoolHandler(w http.ResponseWriter, r *http.Request) {
 	mempool, err := getMempool(TXCLEANFILE_PATH) // Replace with actual mempool path
 	if err != nil {
 		fmt.Println("Error reading mempool", err)
-		giveError(w, 2) // Internal error
+		giveError(w, ErrInternalError) // Internal error
 		return
 	}
 
@@ -67,20 +67,20 @@ func mempoolHandler(w http.ResponseWriter, r *http.Request) {
 func mempoolTransactionHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		fmt.Println("Invalid request method")
-		giveError(w, 1)
+		giveError(w, ErrInvalidRequest) // Invalid request
 		return
 	}
 
 	var req MempoolTransactionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		fmt.Println("Error decoding request", err)
-		giveError(w, 1) // Invalid request body
+		giveError(w, ErrInvalidRequest) // Invalid request
 		return
 	}
 
 	if req.NetworkIdentifier.Blockchain != "mochimo" || req.NetworkIdentifier.Network != "mainnet" {
 		fmt.Println("Invalid network identifier")
-		giveError(w, 1)
+		giveError(w, ErrWrongNetwork) // Wrong network identifier
 		return
 	}
 
@@ -88,7 +88,7 @@ func mempoolTransactionHandler(w http.ResponseWriter, r *http.Request) {
 	mempool, err := getMempool(TXCLEANFILE_PATH) // Replace with actual mempool path
 	if err != nil {
 		fmt.Println("Error reading mempool", err)
-		giveError(w, 2) // Internal error
+		giveError(w, ErrInternalError) // Internal error
 		return
 	}
 
@@ -103,12 +103,12 @@ func mempoolTransactionHandler(w http.ResponseWriter, r *http.Request) {
 
 	if foundTx == nil {
 		fmt.Println("Transaction not found in mempool")
-		giveError(w, 3) // Transaction not found error
+		giveError(w, ErrTXNotFound) // Transaction not found error
 		return
 	}
 
 	// Convert the found transaction to the response format
-	transaction := getTransactionsFromBlockBody([]go_mcminterface.TXQENTRY{*foundTx})[0]
+	transaction := getTransactionsFromBlockBody([]go_mcminterface.TXQENTRY{*foundTx}, go_mcminterface.WotsAddress{}, false)[0]
 
 	// Create the response
 	response := MempoolTransactionResponse{

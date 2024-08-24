@@ -25,9 +25,9 @@ func networkListHandler(w http.ResponseWriter, r *http.Request) {
 // /network/status
 // TODO: Add peers
 func networkStatusHandler(w http.ResponseWriter, r *http.Request) {
-	err, _ := checkIdentifier(r)
+	_, err := checkIdentifier(r)
 	if err != nil {
-		giveError(w, 1)
+		giveError(w, ErrWrongNetwork)
 		return
 	}
 
@@ -51,10 +51,9 @@ func networkStatusHandler(w http.ResponseWriter, r *http.Request) {
 // /network/options
 // /network/options
 func networkOptionsHandler(w http.ResponseWriter, r *http.Request) {
-	// checkIdentifier
-	err, _ := checkIdentifier(r)
+	_, err := checkIdentifier(r)
 	if err != nil {
-		giveError(w, 1)
+		giveError(w, ErrWrongNetwork)
 		return
 	}
 	response := NetworkOptionsResponse{}
@@ -70,6 +69,7 @@ func networkOptionsHandler(w http.ResponseWriter, r *http.Request) {
 		Successful bool   `json:"successful"`
 	}{
 		{"SUCCESS", true},
+		{"PENDING", false},
 		{"FAILURE", false},
 	}
 
@@ -82,10 +82,15 @@ func networkOptionsHandler(w http.ResponseWriter, r *http.Request) {
 		Message   string `json:"message"`
 		Retriable bool   `json:"retriable"`
 	}{
-		{Code: 1, Message: "Invalid request", Retriable: false},
-		{Code: 2, Message: "Internal error", Retriable: true},
-		{Code: 3, Message: "Transaction not found", Retriable: false},
-		{Code: 4, Message: "Account not found", Retriable: true},
+		// Copy of the error codes in handlers.go
+		{1, "Invalid request", false},
+		{2, "Internal general error", true},
+		{3, "Transaction not found", true},
+		{4, "Account not found", true},
+		{5, "Wrong network identifier", false},
+		{6, "Block not found", true},
+		{7, "Wrong curve type", false},
+		{8, "Invalid account format", false},
 	}
 
 	response.Allow.MempoolCoins = false
