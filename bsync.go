@@ -41,6 +41,7 @@ func Sync() bool {
 
 	go_mcminterface.LoadSettings("interface_settings.json")
 
+	// REMEMBER TO UNCOMMENT THIS
 	//go_mcminterface.BenchmarkNodes(5)
 
 	// Set the hash of the genesis block

@@ -13,17 +13,17 @@ import (
 func blockHandler(w http.ResponseWriter, r *http.Request) {
 	// Check for the correct network identifier
 	fmt.Println("checking identifiers")
-	err, req := checkIdentifier(r)
+	req, err := checkIdentifier(r)
 	if err != nil {
 		fmt.Println("error in checkIdentifier", err)
-		giveError(w, 1)
+		giveError(w, ErrWrongNetwork)
 		return
 	}
 
 	block, err := getBlock(req.BlockIdentifier)
 	if err != nil {
 		fmt.Println("error in getBlock", err)
-		giveError(w, 2) // Internal error
+		giveError(w, ErrBlockNotFound)
 		return
 	}
 
@@ -87,8 +87,14 @@ type OperationIdentifier struct {
 	// NetworkIndex *int `json:"network_index,omitempty"`
 }
 
-func getTransactionsFromBlockBody(txentries []go_mcminterface.TXQENTRY) []Transaction {
+// Operations contains the changes to the state.
+// Each TX has 4 operations: 1 for the source, 1 for the destination, and 1 for the change address.
+func getTransactionsFromBlockBody(txentries []go_mcminterface.TXQENTRY, maddr go_mcminterface.WotsAddress, is_success bool) []Transaction {
 	var transactions []Transaction
+	var status string = "SUCCESS"
+	if !is_success {
+		status = "PENDING"
+	}
 	for _, tx := range txentries {
 		operations := []Operation{}
 
@@ -107,7 +113,7 @@ func getTransactionsFromBlockBody(txentries []go_mcminterface.TXQENTRY) []Transa
 					Index: 0,
 				},
 				Type:    "TRANSFER",
-				Status:  "SUCCESS",
+				Status:  status,
 				Account: getAccountFromAddress(src),
 				Amount: Amount{
 					Value:    fmt.Sprintf("-%d", transferAmount+txFee),
@@ -120,7 +126,7 @@ func getTransactionsFromBlockBody(txentries []go_mcminterface.TXQENTRY) []Transa
 					Index: 1,
 				},
 				Type:    "TRANSFER",
-				Status:  "SUCCESS",
+				Status:  status,
 				Account: getAccountFromAddress(dst),
 				Amount: Amount{
 					Value:    fmt.Sprintf("%d", transferAmount),
@@ -134,7 +140,7 @@ func getTransactionsFromBlockBody(txentries []go_mcminterface.TXQENTRY) []Transa
 					Index: 0,
 				},
 				Type:    "TRANSFER",
-				Status:  "SUCCESS",
+				Status:  status,
 				Account: getAccountFromAddress(src),
 				Amount: Amount{
 					Value:    fmt.Sprintf("-%d", changeAmount+transferAmount+txFee),
@@ -147,7 +153,7 @@ func getTransactionsFromBlockBody(txentries []go_mcminterface.TXQENTRY) []Transa
 					Index: 1,
 				},
 				Type:    "TRANSFER",
-				Status:  "SUCCESS",
+				Status:  status,
 				Account: getAccountFromAddress(dst),
 				Amount: Amount{
 					Value:    fmt.Sprintf("%d", transferAmount),
@@ -156,21 +162,36 @@ func getTransactionsFromBlockBody(txentries []go_mcminterface.TXQENTRY) []Transa
 			})
 
 			// Only include change operation if changeAmount is 501 nMCM or more
-			if changeAmount >= 501 {
-				operations = append(operations, Operation{
-					OperationIdentifier: OperationIdentifier{
-						Index: 2,
-					},
-					Type:    "TRANSFER",
-					Status:  "SUCCESS",
-					Account: getAccountFromAddress(chg),
-					Amount: Amount{
-						Value:    fmt.Sprintf("%d", changeAmount),
-						Currency: MCMCurrency,
-					},
-				})
+			if changeAmount < 501 {
+				changeAmount = 0
 			}
+			operations = append(operations, Operation{
+				OperationIdentifier: OperationIdentifier{
+					Index: 2,
+				},
+				Type:    "TRANSFER",
+				Status:  status,
+				Account: getAccountFromAddress(chg),
+				Amount: Amount{
+					Value:    fmt.Sprintf("%d", changeAmount),
+					Currency: MCMCurrency,
+				},
+			})
 		}
+
+		// Add transaction fee operation
+		operations = append(operations, Operation{
+			OperationIdentifier: OperationIdentifier{
+				Index: len(operations),
+			},
+			Type:    "FEE",
+			Status:  status,
+			Account: getAccountFromAddress(maddr),
+			Amount: Amount{
+				Value:    fmt.Sprintf("%d", txFee),
+				Currency: MCMCurrency,
+			},
+		})
 
 		transaction := Transaction{
 			TransactionIdentifier: TransactionIdentifier{
@@ -184,8 +205,10 @@ func getTransactionsFromBlockBody(txentries []go_mcminterface.TXQENTRY) []Transa
 	return transactions
 }
 
+// helper function to get the transactions (included imaginary) from a block
 func getTransactionsFromBlock(block go_mcminterface.Block) []Transaction {
 	transactions := []Transaction{}
+	maddr := go_mcminterface.WotsAddressFromBytes(block.Header.Maddr[:])
 
 	// Add miner reward operation
 	if block.Header.Mreward > 0 {
@@ -195,7 +218,7 @@ func getTransactionsFromBlock(block go_mcminterface.Block) []Transaction {
 			},
 			Type:    "REWARD",
 			Status:  "SUCCESS",
-			Account: getAccountFromAddress(go_mcminterface.WotsAddressFromBytes(block.Header.Maddr[:])),
+			Account: getAccountFromAddress(maddr),
 			Amount: Amount{
 				Value:    fmt.Sprintf("%d", block.Header.Mreward),
 				Currency: MCMCurrency,
@@ -210,8 +233,7 @@ func getTransactionsFromBlock(block go_mcminterface.Block) []Transaction {
 		})
 	}
 
-	// Process body transactions
-	transactions = append(transactions, getTransactionsFromBlockBody(block.Body)...)
+	transactions = append(transactions, getTransactionsFromBlockBody(block.Body, maddr, true)...)
 
 	return transactions
 }
@@ -224,7 +246,7 @@ func getBlockByHexHash(hexHash string) (go_mcminterface.Block, error) {
 		blockNumber, ok := Globals.HashToBlockNumber[hexHash]
 		if !ok {
 			fmt.Println("Block not found in the block map")
-			// print the map hash as hex, : int
+			// print the map hash as hex : int
 			for k, v := range Globals.HashToBlockNumber {
 				fmt.Println("Hash: ", k, "Block Number: ", v)
 			}
@@ -304,18 +326,18 @@ func blockTransactionHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Checking identifiers")
 	if r.Method != http.MethodPost {
 		fmt.Println("Invalid request method")
-		giveError(w, 1)
+		giveError(w, ErrInvalidRequest) // Invalid request method
 		return
 	}
 	var req BlockTransactionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		fmt.Println("Error decoding request", err)
-		giveError(w, 1) // Invalid request body
+		giveError(w, ErrInvalidRequest) // Invalid request body
 		return
 	}
 	if req.NetworkIdentifier.Blockchain != "mochimo" || req.NetworkIdentifier.Network != "mainnet" {
 		fmt.Println("Invalid network identifier")
-		giveError(w, 1)
+		giveError(w, ErrWrongNetwork) // Invalid network identifier
 		return
 	}
 
@@ -323,7 +345,7 @@ func blockTransactionHandler(w http.ResponseWriter, r *http.Request) {
 	block, err := getBlock(req.BlockIdentifier)
 	if err != nil {
 		fmt.Println("Error in getBlock", err)
-		giveError(w, 2) // Internal error
+		giveError(w, ErrBlockNotFound) // Block not found
 		return
 	}
 
@@ -338,7 +360,7 @@ func blockTransactionHandler(w http.ResponseWriter, r *http.Request) {
 
 	if foundTransaction == nil {
 		fmt.Println("Transaction not found")
-		giveError(w, 3) // Transaction not found error
+		giveError(w, ErrTXNotFound) // Transaction not found error
 		return
 	}
 

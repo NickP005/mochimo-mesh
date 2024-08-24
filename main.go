@@ -3,11 +3,13 @@ package main
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 )
 
 func main() {
+	start_time := time.Now()
 	Init()
 
 	r := mux.NewRouter()
@@ -22,7 +24,9 @@ func main() {
 	r.HandleFunc("/construction/derive", constructionDeriveHandler).Methods("POST")
 	r.HandleFunc("/construction/preprocess", constructionPreprocessHandler).Methods("POST")
 	http.Handle("/", r)
-	log.Println("Server started at :8080")
+
+	elapsed := time.Since(start_time)
+	log.Println("Server started in", elapsed, " seconds at :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 
 	/*

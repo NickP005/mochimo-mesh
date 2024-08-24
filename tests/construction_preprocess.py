@@ -26,6 +26,20 @@ def test_construction_preprocess():
                         "decimals": 9
                     }
                 }
+            },
+            {
+                "operation_identifier": {"index": 1},
+                "type": "TRANSFER",
+                "account": {
+                    "address": "0x052069420694206942065520"  # Replace with an actual account address
+                },
+                "amount": {
+                    "value": "100",
+                    "currency": {
+                        "symbol": "MCM",
+                        "decimals": 9
+                    }
+                }
             }
         ],
         "metadata": {}  # Include any additional metadata if necessary

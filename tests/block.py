@@ -3,6 +3,7 @@ import json
 import time
 
 def get_block(block_index=None, block_hash=None):
+    bnum = int(input("Enter block number: "))
     # Define the API endpoint
     url = "http://192.168.1.80:8080/block"
     
@@ -13,7 +14,7 @@ def get_block(block_index=None, block_hash=None):
             "network": "mainnet"
         },
         "block_identifier": {
-            "index": None,
+            "index": bnum,
             "hash": ""
         },
     }

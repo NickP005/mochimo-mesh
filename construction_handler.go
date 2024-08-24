@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/NickP005/go_mcminterface"
@@ -25,22 +26,23 @@ type ConstructionDeriveResponse struct {
 	Metadata          map[string]interface{} `json:"metadata,omitempty"`
 }
 
+// constructionDeriveHandler is the HTTP handler for the `/construction/derive` endpoint.
 func constructionDeriveHandler(w http.ResponseWriter, r *http.Request) {
 	var req ConstructionDeriveRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		giveError(w, 1)
+		giveError(w, ErrInternalError)
 		return
 	}
 
 	// Validate the network identifier
 	if req.NetworkIdentifier.Blockchain != "mochimo" || req.NetworkIdentifier.Network != "mainnet" {
-		giveError(w, 1)
+		giveError(w, ErrWrongNetwork)
 		return
 	}
 
 	// Validate the curve type
 	if req.PublicKey.CurveType != "wotsp" {
-		giveError(w, 1)
+		giveError(w, ErrWrongCurveType)
 		return
 	}
 
@@ -53,7 +55,7 @@ func constructionDeriveHandler(w http.ResponseWriter, r *http.Request) {
 	} else if len(req.PublicKey.HexBytes) == 2208*2 {
 		wots_address = go_mcminterface.WotsAddressFromHex(req.PublicKey.HexBytes)
 	} else {
-		giveError(w, 1)
+		giveError(w, ErrInvalidAccountFormat)
 		return
 	}
 
@@ -83,6 +85,7 @@ type ConstructionPreprocessResponse struct {
 	RequiredPublicKeys []AccountIdentifier    `json:"required_public_keys,omitempty"`
 }
 
+// constructionPreprocessHandler is the HTTP handler for the `/construction/preprocess` endpoint.
 func constructionPreprocessHandler(w http.ResponseWriter, r *http.Request) {
 	var req ConstructionPreprocessRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -101,12 +104,21 @@ func constructionPreprocessHandler(w http.ResponseWriter, r *http.Request) {
 	options := make(map[string]interface{})
 	requiredPublicKeys := []AccountIdentifier{}
 
-	// Example: Add options based on operations (placeholder logic)
+	if len(req.Operations) != 3 {
+		giveError(w, ErrInvalidRequest)
+		return
+	}
+
+	// Sort in operations by operation index
+	operations := make([]Operation, 3)
 	for _, op := range req.Operations {
-		if op.Type != "TRANSFER" {
-			giveError(w, 1)
-		}
-		requiredPublicKeys = append(requiredPublicKeys, op.Account)
+		operations[op.OperationIdentifier.Index] = op
+	}
+	// Check if the source (operation 0) is tagged, if it is check that the tag is the same as the change (operation 2)
+	if (len(operations[0].Account.Address) == 12+2) && operations[0].Account.Address != operations[2].Account.Address {
+		fmt.Println("Source and change addresses tags do not match")
+		giveError(w, ErrInvalidRequest)
+		return
 	}
 
 	// Construct the response
