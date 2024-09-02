@@ -106,78 +106,78 @@ func getTransactionsFromBlockBody(txentries []go_mcminterface.TXQENTRY, maddr go
 		changeAmount := binary.LittleEndian.Uint64(tx.Change_total[:])
 		txFee := binary.LittleEndian.Uint64(tx.Tx_fee[:])
 
-		if !src.IsDefaultTag() {
-			// Tagged source address: Transfer the amount and deduct the transaction fee
-			operations = append(operations, Operation{
-				OperationIdentifier: OperationIdentifier{
-					Index: 0,
-				},
-				Type:    "TRANSFER",
-				Status:  status,
-				Account: getAccountFromAddress(src),
-				Amount: Amount{
-					Value:    fmt.Sprintf("-%d", transferAmount+txFee),
-					Currency: MCMCurrency,
-				},
-			})
+		/*if !src.IsDefaultTag() {
+		// Tagged source address: Transfer the amount and deduct the transaction fee
+		operations = append(operations, Operation{
+			OperationIdentifier: OperationIdentifier{
+				Index: 0,
+			},
+			Type:    "TRANSFER",
+			Status:  status,
+			Account: getAccountFromAddress(src),
+			Amount: Amount{
+				Value:    fmt.Sprintf("-%d", transferAmount+txFee),
+				Currency: MCMCurrency,
+			},
+		})
 
-			operations = append(operations, Operation{
-				OperationIdentifier: OperationIdentifier{
-					Index: 1,
-				},
-				Type:    "TRANSFER",
-				Status:  status,
-				Account: getAccountFromAddress(dst),
-				Amount: Amount{
-					Value:    fmt.Sprintf("%d", transferAmount),
-					Currency: MCMCurrency,
-				},
-			})
-		} else {
-			// Non-tagged source address: Deduct transfer amount + transaction fee
-			operations = append(operations, Operation{
-				OperationIdentifier: OperationIdentifier{
-					Index: 0,
-				},
-				Type:    "TRANSFER",
-				Status:  status,
-				Account: getAccountFromAddress(src),
-				Amount: Amount{
-					Value:    fmt.Sprintf("-%d", changeAmount+transferAmount+txFee),
-					Currency: MCMCurrency,
-				},
-			})
+		operations = append(operations, Operation{
+			OperationIdentifier: OperationIdentifier{
+				Index: 1,
+			},
+			Type:    "TRANSFER",
+			Status:  status,
+			Account: getAccountFromAddress(dst),
+			Amount: Amount{
+				Value:    fmt.Sprintf("%d", transferAmount),
+				Currency: MCMCurrency,
+			},
+		})
+		} else { */
+		// Non-tagged source address: Deduct transfer amount + transaction fee
+		operations = append(operations, Operation{
+			OperationIdentifier: OperationIdentifier{
+				Index: 0,
+			},
+			Type:    "TRANSFER",
+			Status:  status,
+			Account: getAccountFromAddress(src),
+			Amount: Amount{
+				Value:    fmt.Sprintf("-%d", changeAmount+transferAmount+txFee),
+				Currency: MCMCurrency,
+			},
+		})
 
-			operations = append(operations, Operation{
-				OperationIdentifier: OperationIdentifier{
-					Index: 1,
-				},
-				Type:    "TRANSFER",
-				Status:  status,
-				Account: getAccountFromAddress(dst),
-				Amount: Amount{
-					Value:    fmt.Sprintf("%d", transferAmount),
-					Currency: MCMCurrency,
-				},
-			})
+		operations = append(operations, Operation{
+			OperationIdentifier: OperationIdentifier{
+				Index: 1,
+			},
+			Type:    "TRANSFER",
+			Status:  status,
+			Account: getAccountFromAddress(dst),
+			Amount: Amount{
+				Value:    fmt.Sprintf("%d", transferAmount),
+				Currency: MCMCurrency,
+			},
+		})
 
-			// Only include change operation if changeAmount is 501 nMCM or more
-			if changeAmount < 501 {
-				changeAmount = 0
-			}
-			operations = append(operations, Operation{
-				OperationIdentifier: OperationIdentifier{
-					Index: 2,
-				},
-				Type:    "TRANSFER",
-				Status:  status,
-				Account: getAccountFromAddress(chg),
-				Amount: Amount{
-					Value:    fmt.Sprintf("%d", changeAmount),
-					Currency: MCMCurrency,
-				},
-			})
+		// Only include change operation if changeAmount is 501 nMCM or more
+		if changeAmount < 501 {
+			changeAmount = 0
 		}
+		operations = append(operations, Operation{
+			OperationIdentifier: OperationIdentifier{
+				Index: 2,
+			},
+			Type:    "TRANSFER",
+			Status:  status,
+			Account: getAccountFromAddress(chg),
+			Amount: Amount{
+				Value:    fmt.Sprintf("%d", changeAmount),
+				Currency: MCMCurrency,
+			},
+		})
+		//}
 
 		// Add transaction fee operation
 		operations = append(operations, Operation{

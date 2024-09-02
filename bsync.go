@@ -4,12 +4,14 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"log"
+	"sort"
 	"time"
 
 	"github.com/NickP005/go_mcminterface"
 )
 
 const REFRESH_SYNC_INTERVAL = 30
+const SUGGESTED_FEE_PERC float32 = 0.25 // the percentile of the minimum fee
 const TFILE_PATH = "mochimo/bin/d/tfile.dat"
 
 func Init() {
@@ -110,6 +112,22 @@ func RefreshSync() error {
 	for k, v := range blockmap {
 		Globals.HashToBlockNumber[k] = v
 	}
+
+	// get the last 60 minimum mining fees and set the suggested fee accordingly to SUGGESTED_FEE_PERC
+	minfees := make([]uint64, 0, 60)
+	minfee_map, error := readMinFeeMap(60, TFILE_PATH)
+	if error != nil {
+		log.Default().Println("Sync() failed: Error reading minimum fee map")
+		return error
+	}
+	for _, v := range minfee_map {
+		minfees = append(minfees, v)
+	}
+	// sort the minimum fees using quicksort
+	sort.Slice(minfees, func(i, j int) bool {
+		return minfees[i] < minfees[j]
+	})
+	Globals.SuggestedFee = minfees[int(SUGGESTED_FEE_PERC*float32(len(minfees)))]
 
 	return nil
 }

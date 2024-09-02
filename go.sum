@@ -1,5 +1,5 @@
-github.com/NickP005/go_mcminterface v0.1.10-0.20240824091926-dec3d6a4a752 h1:NycYktnMRJH+QR25rFyeCK5wlyd1HNlT5dYDCTXxULs=
-github.com/NickP005/go_mcminterface v0.1.10-0.20240824091926-dec3d6a4a752/go.mod h1:MQWmzQw2qI5RpP7qzjvGQh8zBrInVDwjCxA7luK54rs=
+github.com/NickP005/go_mcminterface v0.1.13 h1:L5Llp2HhhnO8kyRrhnPd2oJIvrUPBiv3vCTGiMf9Rv0=
+github.com/NickP005/go_mcminterface v0.1.13/go.mod h1:MQWmzQw2qI5RpP7qzjvGQh8zBrInVDwjCxA7luK54rs=
 github.com/gorilla/mux v1.8.1 h1:TuBL49tXwgrFYWhqrNgrUNEY92u81SPhu7sTdzQEiWY=
 github.com/gorilla/mux v1.8.1/go.mod h1:AKf9I4AEqPTmMytcMc0KkNouC66V3BtZ4qD5fmWSiMQ=
 github.com/sigurn/crc16 v0.0.0-20240131213347-83fcde1e29d1 h1:NVK+OqnavpyFmUiKfUMHrpvbCi2VFoWTrcpI7aDaJ2I=
