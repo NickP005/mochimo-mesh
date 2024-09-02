@@ -15,6 +15,11 @@ const SUGGESTED_FEE_PERC float32 = 0.25 // the percentile of the minimum fee
 const TFILE_PATH = "mochimo/bin/d/tfile.dat"
 
 func Init() {
+	//randomly pick nodes and print
+	nodes := go_mcminterface.PickNodes(1)
+	for _, node := range nodes {
+		log.Default().Println("Init(): Picked node -> ", node)
+	}
 	// call sync until it is successful, every 10 seconds
 	for !Sync() {
 		log.Default().Println("Init(): Sync() failed, retrying in 10 seconds...")
