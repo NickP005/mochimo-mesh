@@ -49,7 +49,7 @@ func Sync() bool {
 	// Set the hash of the genesis block
 	first_trailer, err := getBTrailer(0)
 	if err != nil {
-		log.Default().Println("Sync() failed: Error fetching genesis block trailer")
+		log.Default().Println("Sync() failed: Error fetching genesis block trailer -> ", err)
 		return false
 	}
 	Globals.GenesisBlockHash = first_trailer.Bhash
