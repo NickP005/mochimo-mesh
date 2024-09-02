@@ -33,6 +33,7 @@ var Globals = GlobalsType{
 	LatestBlockHash:       [32]byte{},
 	GenesisBlockHash:      [32]byte{},
 	CurrentBlockUnixMilli: 0,
+	SuggestedFee:          500,
 }
 
 type ConstantType struct {
@@ -55,5 +56,6 @@ type GlobalsType struct {
 	LatestBlockHash       [32]byte
 	GenesisBlockHash      [32]byte
 	CurrentBlockUnixMilli uint64
+	SuggestedFee          uint64
 	HashToBlockNumber     map[string]uint32
 }

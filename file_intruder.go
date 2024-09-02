@@ -63,6 +63,56 @@ func readBlockMap(count uint32, tfile_path string) (map[string]uint32, error) {
 	return blockmap, nil
 }
 
+// read tfile to get the map of bnum : last num minimum fee
+func readMinFeeMap(count uint32, tfile_path string) (map[uint32]uint64, error) {
+	tfile, err := os.Open(tfile_path)
+	if err != nil {
+		return nil, err
+	}
+	defer tfile.Close()
+
+	// Get file size
+	fi, err := tfile.Stat()
+	if err != nil {
+		return nil, err
+	}
+	fileSize := fi.Size()
+
+	// Calculate the starting position
+	startPos := fileSize - int64(count)*BTRAILER_SIZE
+	if startPos < 0 {
+		startPos = 0
+	}
+
+	// Seek to the starting position
+	_, err = tfile.Seek(startPos, os.SEEK_SET)
+	if err != nil {
+		return nil, err
+	}
+
+	// Initialize the map to store block numbers and minimum fees
+	minFeeMap := make(map[uint32]uint64)
+
+	for i := uint32(0); i < count; i++ {
+		var btrailer go_mcminterface.BTRAILER
+		err := binary.Read(tfile, binary.LittleEndian, &btrailer)
+		if err != nil {
+			return nil, err
+		}
+
+		// Convert block number from bytes to uint32
+		blockNumber := binary.LittleEndian.Uint32(btrailer.Bnum[:])
+
+		// Convert minimum fee from bytes to uint64
+		minFee := binary.LittleEndian.Uint64(btrailer.Mfee[:])
+
+		// Store in map
+		minFeeMap[blockNumber] = minFee
+	}
+
+	return minFeeMap, nil
+}
+
 // 0xhash.bc
 func getBlockInDataFolder(bhash string) (go_mcminterface.Block, error) {
 	//check bhash length

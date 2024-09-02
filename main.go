@@ -23,6 +23,12 @@ func main() {
 	r.HandleFunc("/account/balance", accountBalanceHandler).Methods("POST")
 	r.HandleFunc("/construction/derive", constructionDeriveHandler).Methods("POST")
 	r.HandleFunc("/construction/preprocess", constructionPreprocessHandler).Methods("POST")
+	r.HandleFunc("/construction/metadata", constructionMetadataHandler).Methods("POST")
+	r.HandleFunc("/construction/payloads", constructionPayloadsHandler).Methods("POST")
+	r.HandleFunc("/construction/parse", constructionParseHandler).Methods("POST")
+	r.HandleFunc("/construction/combine", constructionCombineHandler).Methods("POST")
+	r.HandleFunc("/construction/hash", constructionHashHandler).Methods("POST")
+
 	http.Handle("/", r)
 
 	elapsed := time.Since(start_time)
