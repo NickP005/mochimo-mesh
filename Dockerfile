@@ -1,32 +1,46 @@
-# Use a multi-stage build to reduce image size
-FROM golang:1.16-alpine AS builder
+# Use an official Golang image as the base for building the applications
+FROM golang:1.22.5 as builder
 
-# Set the Current Working Directory inside the container
+# Set the working directory
 WORKDIR /app
 
-# Copy go mod and sum files
-COPY go.mod go.sum ./
+# Clone the mochimo-mesh repository
+RUN git clone https://github.com/NickP005/mochimo-mesh.git
 
-# Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
-RUN go mod download
+# Clone the mochimo repository inside mochimo-mesh
+RUN git clone https://github.com/mochimodev/mochimo.git mochimo-mesh/mochimo
 
-# Copy the source from the current directory to the Working Directory inside the container
-COPY . .
+# Build the Mochimo Mesh API
+WORKDIR /app/mochimo-mesh
+RUN go build -o mesh .
 
-# Build the Go app
-RUN go build -o main .
+# Build the Mochimo Node
+WORKDIR /app/mochimo-mesh/mochimo
+RUN make -C . install-mochimo
 
-# Start a new stage from scratch
-FROM alpine:latest
+# Use a newer Ubuntu image for the final stage
+FROM ubuntu:22.04
 
-# Set the Current Working Directory inside the container
-WORKDIR /root/
+# Set environment variables
+ENV PATH="/usr/local/bin:${PATH}"
 
-# Copy the Pre-built binary file from the previous stage
-COPY --from=builder /app/main .
+# Install necessary dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-# Expose port 8080 to the outside world
-EXPOSE 8080
+# Set the working directory
+WORKDIR /root
 
-# Command to run the executable
-ENTRYPOINT ["./main"]
+# Copy the built binaries from the builder stage
+COPY --from=builder /app/mochimo-mesh/ /usr/local/bin/
+COPY --from=builder /app/mochimo-mesh/mochimo/bin /usr/local/bin/mochimo/bin/
+
+# Expose the necessary ports
+EXPOSE 8080 2095
+
+# Workdir /usr/local/bin/
+WORKDIR /usr/local/bin/
+
+# Start both the Mochimo node and the mesh API
+CMD ["sh", "-c", "./mochimo/bin/gomochi -n & exec mesh"]
