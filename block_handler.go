@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/NickP005/go_mcminterface"
@@ -12,17 +12,17 @@ import (
 
 func blockHandler(w http.ResponseWriter, r *http.Request) {
 	// Check for the correct network identifier
-	fmt.Println("checking identifiers")
+	log.Println("Checking identifiers")
 	req, err := checkIdentifier(r)
 	if err != nil {
-		fmt.Println("error in checkIdentifier", err)
+		log.Println("Error in checkIdentifier", err)
 		giveError(w, ErrWrongNetwork)
 		return
 	}
 
 	block, err := getBlock(req.BlockIdentifier)
 	if err != nil {
-		fmt.Println("error in getBlock", err)
+		log.Println("Error in getBlock", err)
 		giveError(w, ErrBlockNotFound)
 		return
 	}
@@ -241,18 +241,18 @@ func getTransactionsFromBlock(block go_mcminterface.Block) []Transaction {
 func getBlockByHexHash(hexHash string) (go_mcminterface.Block, error) {
 	blockData, err := getBlockInDataFolder(hexHash)
 	if err != nil {
-		fmt.Println("Block not found in data folder, fetching from the network", err)
+		log.Println("Block not found in data folder, fetching from the network", err)
 		// check in the Globals.HashToBlockNumber map the block number
 		blockNumber, ok := Globals.HashToBlockNumber[hexHash]
 		if !ok {
-			fmt.Println("Block not found in the block map")
+			log.Println("Block not found in the block map")
 			// print the map hash as hex : int
 			for k, v := range Globals.HashToBlockNumber {
-				fmt.Println("Hash: ", k, "Block Number: ", v)
+				log.Println("Hash: ", k, "Block Number: ", v)
 			}
 			return go_mcminterface.Block{}, err
 		}
-		fmt.Println("Block found in the block map", blockNumber)
+		log.Println("Block found in the block map", blockNumber)
 		blockData, err = go_mcminterface.QueryBlockFromNumber(uint64(blockNumber))
 		if err != nil {
 			return go_mcminterface.Block{}, err
@@ -323,20 +323,20 @@ type BlockTransactionResponse struct {
 
 func blockTransactionHandler(w http.ResponseWriter, r *http.Request) {
 	// Check for the correct network identifier
-	fmt.Println("Checking identifiers")
+	log.Println("Checking identifiers")
 	if r.Method != http.MethodPost {
-		fmt.Println("Invalid request method")
+		log.Println("Invalid request method")
 		giveError(w, ErrInvalidRequest) // Invalid request method
 		return
 	}
 	var req BlockTransactionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		fmt.Println("Error decoding request", err)
+		log.Println("Error decoding request", err)
 		giveError(w, ErrInvalidRequest) // Invalid request body
 		return
 	}
 	if req.NetworkIdentifier.Blockchain != "mochimo" || req.NetworkIdentifier.Network != "mainnet" {
-		fmt.Println("Invalid network identifier")
+		log.Println("Invalid network identifier")
 		giveError(w, ErrWrongNetwork) // Invalid network identifier
 		return
 	}
@@ -344,7 +344,7 @@ func blockTransactionHandler(w http.ResponseWriter, r *http.Request) {
 	// Fetch the block using the block identifier from the request
 	block, err := getBlock(req.BlockIdentifier)
 	if err != nil {
-		fmt.Println("Error in getBlock", err)
+		log.Println("Error in getBlock", err)
 		giveError(w, ErrBlockNotFound) // Block not found
 		return
 	}
@@ -359,7 +359,7 @@ func blockTransactionHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if foundTransaction == nil {
-		fmt.Println("Transaction not found")
+		log.Println("Transaction not found")
 		giveError(w, ErrTXNotFound) // Transaction not found error
 		return
 	}
