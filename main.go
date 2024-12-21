@@ -10,14 +10,12 @@ import (
 
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Set CORS headers
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
-		w.Header().Set("Access-Control-Max-Age", "3600")
+		w.Header().Set("Content-Type", "application/json")
 
-		// Handle preflight requests
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return
@@ -32,8 +30,23 @@ func main() {
 	Init()
 
 	r := mux.NewRouter()
-	// Apply CORS middleware
 	r.Use(corsMiddleware)
+
+	// Add explicit OPTIONS handling for each route
+	for _, path := range []string{
+		"/block", "/block/transaction",
+		"/network/list", "/network/status", "/network/options",
+		"/mempool", "/mempool/transaction",
+		"/account/balance",
+		"/construction/derive", "/construction/preprocess",
+		"/construction/metadata", "/construction/payloads",
+		"/construction/parse", "/construction/combine",
+		"/construction/hash", "/construction/submit",
+	} {
+		r.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}).Methods("OPTIONS")
+	}
 
 	r.HandleFunc("/block", blockHandler).Methods("POST")
 	r.HandleFunc("/block/transaction", blockTransactionHandler).Methods("POST")
@@ -54,7 +67,6 @@ func main() {
 
 	elapsed := time.Since(start_time)
 	log.Println("Server started in", elapsed, " seconds at :8080")
-	// Use the router directly instead of nil
 	log.Fatal(http.ListenAndServe(":8080", r))
 
 	/*
