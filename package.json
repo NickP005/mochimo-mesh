@@ -1,0 +1,22 @@
+{
+    "name": "mochimo-mesh",
+    "version": "1.0.0",
+    "description": "Mochimo Rosetta API Client",
+    "main": "dist/wallet_manager.js",
+    "types": "dist/wallet_manager.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "watch": "tsc -w",
+        "test": "node dist/test.js"
+    },
+    "dependencies": {
+        "crypto-js": "^4.2.0",
+        "node-fetch": "^2.6.9"
+    },
+    "devDependencies": {
+        "@types/crypto-js": "^4.2.2",
+        "@types/node": "^20.0.0",
+        "@types/node-fetch": "^2.6.4",
+        "typescript": "^4.9.0"
+    }
+}
