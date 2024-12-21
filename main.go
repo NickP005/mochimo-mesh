@@ -10,19 +10,21 @@ import (
 
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Set headers before any other operation
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		//w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Methods", "*")
-
-		//w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept")
 		w.Header().Set("Access-Control-Allow-Headers", "*")
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
 		w.Header().Set("Access-Control-Max-Age", "86400")
-		w.Header().Set("Content-Type", "application/json")
 
+		// Handle preflight
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return
+		}
+
+		// Only set Content-Type for non-OPTIONS requests
+		if r.Method != "OPTIONS" {
+			w.Header().Set("Content-Type", "application/json")
 		}
 
 		next.ServeHTTP(w, r)
@@ -34,23 +36,10 @@ func main() {
 	Init()
 
 	r := mux.NewRouter()
-	r.Use(corsMiddleware)
 
-	// Add explicit OPTIONS handling for each route
-	for _, path := range []string{
-		"/block", "/block/transaction",
-		"/network/list", "/network/status", "/network/options",
-		"/mempool", "/mempool/transaction",
-		"/account/balance",
-		"/construction/derive", "/construction/preprocess",
-		"/construction/metadata", "/construction/payloads",
-		"/construction/parse", "/construction/combine",
-		"/construction/hash", "/construction/submit",
-	} {
-		r.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
-		}).Methods("OPTIONS")
-	}
+	// Apply CORS middleware first
+	//r.Use(mux.CORSMethodMiddleware(r))
+	r.Use(corsMiddleware)
 
 	r.HandleFunc("/block", blockHandler).Methods("POST")
 	r.HandleFunc("/block/transaction", blockTransactionHandler).Methods("POST")
