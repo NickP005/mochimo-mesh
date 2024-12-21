@@ -9,18 +9,22 @@ import (
 )
 
 func corsMiddleware(next http.Handler) http.Handler {
-	return http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Set CORS headers
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "*")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		w.Header().Set("Access-Control-Max-Age", "3600")
 
+		// Handle preflight requests
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 
 		next.ServeHTTP(w, r)
-	}))
+	})
 }
 
 func main() {
@@ -48,11 +52,10 @@ func main() {
 	r.HandleFunc("/construction/hash", constructionHashHandler).Methods("POST")
 	r.HandleFunc("/construction/submit", constructionSubmitHandler).Methods("POST")
 
-	http.Handle("/", r)
-
 	elapsed := time.Since(start_time)
 	log.Println("Server started in", elapsed, " seconds at :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	// Use the router directly instead of nil
+	log.Fatal(http.ListenAndServe(":8080", r))
 
 	/*
 		go_mcminterface.LoadSettings("interface_settings.json")
