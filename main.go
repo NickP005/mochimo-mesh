@@ -8,11 +8,29 @@ import (
 	"github.com/gorilla/mux"
 )
 
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	}))
+}
+
 func main() {
 	start_time := time.Now()
 	Init()
 
 	r := mux.NewRouter()
+	// Apply CORS middleware
+	r.Use(corsMiddleware)
+
 	r.HandleFunc("/block", blockHandler).Methods("POST")
 	r.HandleFunc("/block/transaction", blockTransactionHandler).Methods("POST")
 	r.HandleFunc("/network/list", networkListHandler).Methods("POST")
