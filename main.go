@@ -46,6 +46,7 @@ func main() {
 	r.HandleFunc("/construction/parse", constructionParseHandler).Methods("POST")
 	r.HandleFunc("/construction/combine", constructionCombineHandler).Methods("POST")
 	r.HandleFunc("/construction/hash", constructionHashHandler).Methods("POST")
+	r.HandleFunc("/construction/submit", constructionSubmitHandler).Methods("POST")
 
 	http.Handle("/", r)
 
