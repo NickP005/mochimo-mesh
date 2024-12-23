@@ -169,7 +169,6 @@ type ConstructionMetadataResponse struct {
 	SuggestedFee []Amount               `json:"suggested_fee,omitempty"`
 }
 
-// constructionMetadataHandler is the HTTP handler for the `/construction/metadata` endpoint.
 func constructionMetadataHandler(w http.ResponseWriter, r *http.Request) {
 	var req ConstructionMetadataRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -196,24 +195,34 @@ func constructionMetadataHandler(w http.ResponseWriter, r *http.Request) {
 
 	// resolve tags (map of tags to addresses)
 	var tags map[string]string
-	if _, ok := req.Options["resolve_tags"]; ok {
+	if resolveTags, ok := req.Options["resolve_tags"]; ok {
 		tags = make(map[string]string)
-		for _, tag := range req.Options["resolve_tags"].([]string) {
-			wotsAddr, err := go_mcminterface.QueryTagResolve([]byte(tag))
-			if err != nil {
-				giveError(w, ErrAccountNotFound)
-				return
+		// Convert the interface{} to []interface{} first
+		if tagList, ok := resolveTags.([]interface{}); ok {
+			for _, tag := range tagList {
+				// Convert each tag to string
+				if tagStr, ok := tag.(string); ok {
+					// Remove "0x" prefix if present for QueryTagResolve
+					tagToResolve := tagStr
+					if len(tagStr) > 2 && tagStr[:2] == "0x" {
+						tagToResolve = tagStr[2:]
+					}
+
+					wotsAddr, err := go_mcminterface.QueryTagResolveHex(tagToResolve)
+					if err != nil {
+						giveError(w, ErrAccountNotFound)
+						return
+					}
+					// Always store with "0x" prefix in the response
+					tags[tagStr] = "0x" + hex.EncodeToString(wotsAddr.Address[:])
+				}
 			}
-			tags[tag] = "0x" + hex.EncodeToString(wotsAddr.Address[:])
 		}
 	}
 
 	metadata := map[string]interface{}{}
 	metadata["source_balance"] = source_balance
 	metadata["resolved_tags"] = tags
-
-	// print metadata
-	fmt.Println(metadata)
 
 	response := ConstructionMetadataResponse{
 		Metadata: metadata,
@@ -254,6 +263,7 @@ type SigningPayload struct {
 func constructionPayloadsHandler(w http.ResponseWriter, r *http.Request) {
 	var req ConstructionPayloadsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		print("Error decoding request payloads")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
@@ -265,7 +275,8 @@ func constructionPayloadsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Four operations: source, destination, change, and fee
-	if len(req.Operations) == 4 {
+	if len(req.Operations) != 4 {
+		fmt.Printf("Invalid number of operations: %d\n", len(req.Operations))
 		giveError(w, ErrInvalidRequest)
 		return
 	}
@@ -290,18 +301,39 @@ func constructionPayloadsHandler(w http.ResponseWriter, r *http.Request) {
 
 	// append the destination address, this time we check also in metadata.resolved_tags
 	if len(req.Operations[1].Account.Address) != 2208*2+2 {
-		// check metadata has full_address
-		if _, ok := req.Operations[1].Account.Metadata["full_address"]; !ok || len(req.Operations[1].Account.Metadata["full_address"].(string)) != 2208*2+2 {
-			// check if Account.Address is a key in metadata.resolved_tags
-			if _, ok := req.Metadata["resolved_tags"]; !ok {
+		// First check if there's a full_address in metadata
+		if fullAddr, ok := req.Operations[1].Account.Metadata["full_address"]; ok {
+			if fullAddrStr, ok := fullAddr.(string); ok && len(fullAddrStr) == 2208*2+2 {
+				unsignedTransaction += fullAddrStr[2:]
+			} else {
 				giveError(w, ErrInvalidRequest)
 				return
 			}
-			if _, ok := req.Metadata["resolved_tags"].(map[string]string)[req.Operations[1].Account.Address]; !ok {
+		} else {
+			// Try to get the address from resolved_tags
+			if req.Metadata == nil {
 				giveError(w, ErrInvalidRequest)
 				return
 			}
-			unsignedTransaction += req.Metadata["resolved_tags"].(map[string]string)[req.Operations[1].Account.Address][2:]
+
+			resolvedTags, ok := req.Metadata["resolved_tags"].(map[string]interface{})
+			if !ok {
+				giveError(w, ErrInvalidRequest)
+				return
+			}
+
+			resolvedAddr, ok := resolvedTags[req.Operations[1].Account.Address].(string)
+			if !ok {
+				giveError(w, ErrInvalidRequest)
+				return
+			}
+
+			if len(resolvedAddr) != 2208*2+2 {
+				giveError(w, ErrInvalidRequest)
+				return
+			}
+
+			unsignedTransaction += resolvedAddr[2:]
 		}
 	} else if len(req.Operations[1].Account.Address) == 2208*2+2 {
 		unsignedTransaction += req.Operations[1].Account.Address[2:]
@@ -325,11 +357,30 @@ func constructionPayloadsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// append send total, change total, and tx fee as 8 bytes le hex
-	send_total := req.Operations[1].Amount.Value
-	change_total := req.Operations[2].Amount.Value
-	tx_fee := req.Operations[3].Amount.Value
-	unsignedTransaction += fmt.Sprintf("%16x%16x%16x", send_total, change_total, tx_fee)
+	// Parse amounts with error handling
+	send_total, err := strconv.ParseUint(req.Operations[1].Amount.Value, 10, 64)
+	if err != nil {
+		fmt.Printf("Error parsing send total: %v\n", err)
+		giveError(w, ErrInvalidRequest)
+		return
+	}
+
+	change_total, err := strconv.ParseUint(req.Operations[2].Amount.Value, 10, 64)
+	if err != nil {
+		fmt.Printf("Error parsing change total: %v\n", err)
+		giveError(w, ErrInvalidRequest)
+		return
+	}
+
+	tx_fee, err := strconv.ParseUint(req.Operations[3].Amount.Value, 10, 64)
+	if err != nil {
+		fmt.Printf("Error parsing tx fee: %v\n", err)
+		giveError(w, ErrInvalidRequest)
+		return
+	}
+
+	// Format hexadecimal with leading zeros
+	unsignedTransaction += fmt.Sprintf("%016x%016x%016x", send_total, change_total, tx_fee)
 
 	var payloads []SigningPayload
 
@@ -370,6 +421,7 @@ type ConstructionCombineResponse struct {
 func constructionCombineHandler(w http.ResponseWriter, r *http.Request) {
 	var req ConstructionCombineRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		fmt.Print("Error decoding request combine")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
@@ -381,27 +433,33 @@ func constructionCombineHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate the unsigned transaction
-	if len(req.UnsignedTransaction) != 2208*3+16*3 {
+	if len(req.UnsignedTransaction) != 2208*3*2+8*3*2 {
+		fmt.Print("Invalid unsigned transaction")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
 
 	// Validate the number of signatures
 	if len(req.Signatures) != 1 {
+		fmt.Print("Invalid number of signatures")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
 
 	// Validate the signature
 	if req.Signatures[0].SigningPayload.HexBytes != req.UnsignedTransaction {
+		fmt.Print("Invalid signature")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
 
 	if len(req.Signatures[0].HexBytes) != 2144*2 {
+		fmt.Print("Invalid signature length")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
+
+	// TO DO CHECK THAT SIGNATURE IS VALID
 
 	// Construct the signed transaction
 	signedTransaction := req.UnsignedTransaction + req.Signatures[0].HexBytes
@@ -449,18 +507,18 @@ func constructionParseHandler(w http.ResponseWriter, r *http.Request) {
 	// Parse the transaction to extract operations
 	var operations []Operation
 
-	source_address_hex := req.Transaction[:2208*2]
+	source_address_hex := req.Transaction[0 : 2208*2]
 	destination_address_hex := req.Transaction[2208*2 : 2208*2*2]
 	change_address_hex := req.Transaction[2208*2*2 : 2208*3*2]
-	send_total_hex := req.Transaction[2208*3*2 : 2208*3*2+16*2]
-	change_total_hex := req.Transaction[2208*3*2+16*2 : 2208*3*2+16*2*2]
-	tx_fee_hex := req.Transaction[2208*3*2+16*2*2 : 2208*3*2+16*2*3]
+	send_total_hex := req.Transaction[2208*3*2 : 2208*3*2+8*2]
+	change_total_hex := req.Transaction[2208*3*2+8*2 : 2208*3*2+8*2*2]
+	tx_fee_hex := req.Transaction[2208*3*2+8*2*2 : 2208*3*2+8*2*3]
 
 	send_total, _ := strconv.ParseUint(send_total_hex, 16, 64)
 	change_total, _ := strconv.ParseUint(change_total_hex, 16, 64)
 	tx_fee, _ := strconv.ParseUint(tx_fee_hex, 16, 64)
 
-	source_address := getAccountFromAddress(go_mcminterface.WotsAddressFromHex(source_address_hex[2:]))
+	source_address := getAccountFromAddress(go_mcminterface.WotsAddressFromHex(source_address_hex))
 	operations = append(operations, Operation{
 		OperationIdentifier: OperationIdentifier{
 			Index: 0,
@@ -473,7 +531,7 @@ func constructionParseHandler(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 
-	destination_address := getAccountFromAddress(go_mcminterface.WotsAddressFromHex(destination_address_hex[2:]))
+	destination_address := getAccountFromAddress(go_mcminterface.WotsAddressFromHex(destination_address_hex))
 	operations = append(operations, Operation{
 		OperationIdentifier: OperationIdentifier{
 			Index: 1,
@@ -486,7 +544,7 @@ func constructionParseHandler(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 
-	change_address := getAccountFromAddress(go_mcminterface.WotsAddressFromHex(change_address_hex[2:]))
+	change_address := getAccountFromAddress(go_mcminterface.WotsAddressFromHex(change_address_hex))
 	operations = append(operations, Operation{
 		OperationIdentifier: OperationIdentifier{
 			Index: 2,
