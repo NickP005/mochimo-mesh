@@ -92,6 +92,8 @@ type ConstructionPreprocessResponse struct {
 func constructionPreprocessHandler(w http.ResponseWriter, r *http.Request) {
 	var req ConstructionPreprocessRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		//
+		fmt.Print("Error decoding request")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
@@ -135,7 +137,7 @@ func constructionPreprocessHandler(w http.ResponseWriter, r *http.Request) {
 	// set source_address to full_address
 	options["source_addr"] = operations[0].Account.Metadata["full_address"].(string)
 
-	if len(operations[1].Account.Address) == 12*2+2 && len(operations[1].Account.Metadata["full_address"].(string)) != 2208*2+2 {
+	if len(operations[1].Account.Address) == 12*2+2 /* && len(operations[1].Account.Metadata["full_address"].(string)) != 2208*2+2 */ {
 		// in options.resolve_tags add the tag
 		if _, ok := options["resolve_tags"]; !ok {
 			options["resolve_tags"] = []string{}
@@ -209,6 +211,9 @@ func constructionMetadataHandler(w http.ResponseWriter, r *http.Request) {
 	metadata := map[string]interface{}{}
 	metadata["source_balance"] = source_balance
 	metadata["resolved_tags"] = tags
+
+	// print metadata
+	fmt.Println(metadata)
 
 	response := ConstructionMetadataResponse{
 		Metadata: metadata,
