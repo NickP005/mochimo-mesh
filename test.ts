@@ -1,4 +1,4 @@
-import { MochimoRosettaClient, Operation, PublicKey, WOTS } from './wallet_manager';
+import { MochimoRosettaClient, Operation, PublicKey, WOTS, TransactionManager} from './wallet_manager';
 
 async function testMochimoRosettaClient() {
     const client = new MochimoRosettaClient();
@@ -6,6 +6,7 @@ async function testMochimoRosettaClient() {
     wots.init();
     
     try {
+        /*
         // Test network status and options
         console.log('1. Testing Network Initialization...');
         const { status, options } = await client.initialize();
@@ -45,7 +46,7 @@ async function testMochimoRosettaClient() {
             status: 'SUCCESS',
             account: { address: testAddress },
             amount: {
-                value: '1000000',
+                value: 1000000,
                 currency: { symbol: 'MCM', decimals: 8 }
             }
         }];
@@ -102,6 +103,8 @@ async function testMochimoRosettaClient() {
         );
         console.log('Hash Response:', hashResponse);
 
+        */
+
         // Optional: Test construction submit
         // Commented out to avoid actual transaction submission
         /*
@@ -111,6 +114,28 @@ async function testMochimoRosettaClient() {
         );
         console.log('Submit Response:', submitResponse);
         */
+
+        // get mempool
+        console.log('\n11. Testing Mempool...');
+        const mempool = await client.getMempool();
+        console.log('Mempool:', mempool);
+
+        // Test TransactionManager 
+        console.log('\n12. Testing Transaction Manager...');
+        // convert to hex   
+        const txManager = new TransactionManager(
+            client,
+            "c54572cb24e810fc2285aa4f310ce07ad3158a34e7fe8fc63287130935189800",      // wots_seed
+            "b3b8c474d47198ba3237a16397ca267a6b2324eee3d8541ff074b74fc0d21101",      // next_wots_seed
+            "0e5989d23edfb582db3e730d",  // sender tag
+            "985dfa821c48b8b1ff6802ca"   // receiver tag
+        );
+        const txResponse = await txManager.sendTransaction(
+            0,  // amount
+            500   // fee
+        );
+
+        console.log('Transaction Response:', txResponse);
 
     } catch (error) {
         console.error('Test Error:', error);

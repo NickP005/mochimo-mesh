@@ -517,7 +517,7 @@ export interface Operation {
         metadata?: Record<string, any>;
     };
     amount: {
-        value: number;
+        value: string;  // Changed from number to string
         currency: {
             symbol: string;
             decimals: number;
@@ -577,9 +577,11 @@ export interface ConstructionDeriveRequest {
 }
 
 export interface ConstructionDeriveResponse {
-    address: string;
-    account_identifier?: {
+    account_identifier: {
         address: string;
+        metadata?: {
+            tag?: string;
+        };
     };
     metadata?: Record<string, any>;
 }
@@ -591,8 +593,21 @@ export interface ConstructionPreprocessRequest {
 }
 
 export interface ConstructionPreprocessResponse {
-    options?: Record<string, any>;
-    required_public_keys?: { address: string }[];
+    required_public_keys?: Array<{
+        address: string;
+        metadata?: {
+            tag?: string;
+        };
+    }>;
+    options?: {
+        source_address?: string;
+        source_tag?: string;
+        change_address?: string;
+        change_tag?: string;
+        destination_tag?: string;
+        amount?: string;
+        fee?: string;
+    };
 }
 
 export interface ConstructionMetadataRequest {
@@ -602,7 +617,14 @@ export interface ConstructionMetadataRequest {
 }
 
 export interface ConstructionMetadataResponse {
-    metadata: Record<string, any>;
+    metadata: {
+        source_balance?: string;
+        source_nonce?: number;
+        source_tag?: string;
+        destination_tag?: string;
+        change_tag?: string;
+        suggested_fee?: string;
+    };
     suggested_fee?: Amount[];
 }
 
@@ -615,11 +637,14 @@ export interface ConstructionPayloadsRequest {
 
 export interface ConstructionPayloadsResponse {
     unsigned_transaction: string;
-    payloads: {
+    payloads: Array<{
         address: string;
         hex_bytes: string;
         signature_type: string;
-    }[];
+        metadata?: {
+            tag?: string;
+        };
+    }>;
 }
 
 export interface ConstructionParseRequest {
@@ -637,11 +662,7 @@ export interface ConstructionParseResponse {
 export interface ConstructionCombineRequest {
     network_identifier: NetworkIdentifier;
     unsigned_transaction: string;
-    signatures: {
-        hex_bytes: string;
-        public_key: PublicKey;
-        signature_type: string;
-    }[];
+    signatures: Signature[];
 }
 
 export interface ConstructionCombineResponse {
@@ -668,11 +689,24 @@ export interface ConstructionSubmitResponse {
     metadata?: Record<string, any>;
 }
 
+export interface SigningPayload {
+    hex_bytes: string;
+    signature_type: string;
+    address?: string;
+}
+
+export interface Signature {
+    signing_payload: SigningPayload;
+    public_key: PublicKey;
+    signature_type: string;
+    hex_bytes: string;
+}
+
 export class MochimoRosettaClient {
     private baseUrl: string;
     public networkIdentifier: NetworkIdentifier;
 
-    constructor(baseUrl: string = 'http://ip.leonapp.it:8081') {
+    constructor(baseUrl: string = 'http://0.0.0.0:8080') {
         this.baseUrl = baseUrl;
         this.networkIdentifier = {
             blockchain: 'mochimo',
@@ -736,6 +770,13 @@ export class MochimoRosettaClient {
         });
     }
 
+    // get mempool
+    async getMempool(): Promise<any> {
+        return this.post('/mempool', {
+            network_identifier: this.networkIdentifier
+        });
+    }
+
     async constructionDerive(publicKey: string, curveType: string = 'wotsp'): Promise<ConstructionDeriveResponse> {
         const request: ConstructionDeriveRequest = {
             network_identifier: this.networkIdentifier,
@@ -794,7 +835,7 @@ export class MochimoRosettaClient {
 
     async constructionCombine(
         unsignedTransaction: string,
-        signatures: { hex_bytes: string; public_key: PublicKey; signature_type: string }[]
+        signatures: Signature[]
     ): Promise<ConstructionCombineResponse> {
         const request: ConstructionCombineRequest = {
             network_identifier: this.networkIdentifier,
@@ -846,23 +887,21 @@ export class TransactionManager {
         // Derive sender address
         this.status_string = 'Deriving the address from API...';
         const senderResponse = await this.client.constructionDerive('0x' + this.wots.bytesToHex(this.public_key));
-        const senderAddress = senderResponse.address;
+        const senderAddress = senderResponse.account_identifier;
 
         // Derive change address
         this.status_string = 'Deriving the change address from API...';
         const changeResponse = await this.client.constructionDerive('0x' + this.wots.bytesToHex(this.change_public_key));
-        const changeAddress = changeResponse.address;
+        const changeAddress = changeResponse.account_identifier;
 
         const operations: Operation[] = [
             {
                 operation_identifier: { index: 0 },
                 type: 'TRANSFER',
                 status: 'SUCCESS',
-                account: {
-                    address: senderAddress,
-                },
+                account: senderAddress,
                 amount: {
-                    value: 0,
+                    value: '0',  // Changed to string
                     currency: {
                         symbol: 'MCM',
                         decimals: 0
@@ -874,10 +913,10 @@ export class TransactionManager {
                 type: 'TRANSFER',
                 status: 'SUCCESS',
                 account: {
-                    address: this.receiver_tag,
+                    address: "0x" + this.receiver_tag,
                 },
                 amount: {
-                    value: 0,
+                    value: '0',  // Changed to string
                     currency: {
                         symbol: 'MCM',
                         decimals: 0
@@ -888,11 +927,9 @@ export class TransactionManager {
                 operation_identifier: { index: 2 },
                 type: 'TRANSFER',
                 status: 'SUCCESS',
-                account: {
-                    address: changeAddress,
-                },
+                account: changeAddress,
                 amount: {
-                    value: 0,
+                    value: '0',  // Changed to string
                     currency: {
                         symbol: 'MCM',
                         decimals: 0
@@ -903,16 +940,18 @@ export class TransactionManager {
 
         // Preprocess
         this.status_string = 'Preprocessing transaction...';
+        console.log("status_string", this.status_string);
         const preprocessResponse = await this.client.constructionPreprocess(operations);
 
         // Get resolved tags and source balance
         this.status_string = 'Getting transaction metadata...';
+        console.log("status_string", this.status_string);
         const metadataResponse = await this.client.constructionMetadata(preprocessResponse.options);
 
-        const senderBalance = metadataResponse.metadata.source_balance;
-        operations[0].amount.value = - senderBalance - amount - miner_fee;
-        operations[1].amount.value = amount;
-        operations[2].amount.value = senderBalance - amount - miner_fee;
+        const senderBalance: number = Number(metadataResponse.metadata.source_balance || '0');
+        operations[0].amount.value = String(-(senderBalance));  // Convert to string
+        operations[1].amount.value = String(amount);  // Convert to string
+        operations[2].amount.value = String(senderBalance - amount - miner_fee);  // Convert to string
 
         // Append operation 3 mining fee
         operations.push({
@@ -923,7 +962,7 @@ export class TransactionManager {
                 address: ''
             },
             amount: {
-                value: miner_fee,
+                value: String(miner_fee),  // Convert to string
                 currency: {
                     symbol: 'MCM',
                     decimals: 0
@@ -933,6 +972,7 @@ export class TransactionManager {
 
         // Prepare payloads
         this.status_string = 'Preparing transaction payloads...';
+        console.log("status_string", this.status_string);
         const payloadsResponse = await this.client.constructionPayloads(
             operations,
             metadataResponse.metadata,
@@ -940,6 +980,7 @@ export class TransactionManager {
 
         // Parse unsigned transaction to verify correctness
         this.status_string = 'Parsing unsigned transaction...';
+        console.log("status_string", this.status_string);
         const parseResponse = await this.client.constructionParse(
             payloadsResponse.unsigned_transaction,
             false
@@ -947,26 +988,45 @@ export class TransactionManager {
 
         // Sign the transaction
         this.status_string = 'Signing transaction...';
+        console.log("status_string", this.status_string);
         const to_sign = new Uint8Array(this.wots.hexToBytes(payloadsResponse.unsigned_transaction));
         // hash the transaction
         const hash = this.wots.sha256(to_sign);
-        const signature = this.wots.generateSignatureFrom(
+        const signatureBytes = this.wots.generateSignatureFrom(
             this.wots_seed,
             hash
             );
 
         // Combine transaction
         this.status_string = 'Combining transaction parts...';
+        console.log("status_string", this.status_string);
+        
+        // Create signature with matching hex bytes
+        const signature: Signature = {
+            signing_payload: {
+                hex_bytes: payloadsResponse.unsigned_transaction, // Must match unsigned_transaction exactly
+                signature_type: "wotsp"
+            },
+            public_key: {
+                hex_bytes: this.wots.bytesToHex(this.public_key),
+                curve_type: "wotsp"
+            },
+            signature_type: "wotsp",
+            hex_bytes: this.wots.bytesToHex(signatureBytes)
+        };
+
+        console.log("Debug - Validating signature payload match:");
+        console.log("Unsigned tx:", payloadsResponse.unsigned_transaction);
+        console.log("Signing payload:", signature.signing_payload.hex_bytes);
+
+        // Verify the hex bytes match before sending
+        if (signature.signing_payload.hex_bytes !== payloadsResponse.unsigned_transaction) {
+            throw new Error("Signing payload hex bytes must match unsigned transaction");
+        }
+
         const combineResponse = await this.client.constructionCombine(
             payloadsResponse.unsigned_transaction,
-            [{
-                hex_bytes: this.wots.bytesToHex(signature),
-                public_key: {
-                    hex_bytes: this.wots.bytesToHex(this.public_key),
-                    curve_type: "wotsp"
-                },
-                signature_type: "wotsp"
-            }]
+            [signature]
         );
 
         // Parse signed transaction to verify
