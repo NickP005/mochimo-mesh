@@ -1,5 +1,6 @@
 import fetch from 'node-fetch';
 import * as CryptoJS from 'crypto-js'
+import { createHash } from 'crypto';
 
 export interface WOTSKeyPair {
     privateKey: string
@@ -23,464 +24,325 @@ export interface MasterWallet {
     password?: string  // Add password to the interface
 }
 
+/////
 
+export interface WOTSAddress {
+    [key: string]: Uint8Array;
+}
+
+export interface WOTSParams {
+    n?: number;      // 32 bytes default
+    w?: number;      // 16 default
+    logW?: number;   // 4 default
+}
 
 export class WOTS {
-  private readonly PARAMSN = 32
-  private readonly WOTSW = 16
-  private readonly WOTSLOGW = 4
-  private readonly WOTSLEN1: number
-  private readonly WOTSLEN2 = 3
-  private readonly WOTSLEN: number
-  private readonly WOTSSIGBYTES: number
-  private readonly TXSIGLEN = 2144
-  private readonly TXADDRLEN = 2208
-  private readonly XMSS_HASH_PADDING_F = 0
-  private readonly XMSS_HASH_PADDING_PRF = 3
+    private readonly PARAMSN: number;
+    private readonly WOTSW: number;
+    private readonly WOTSLOGW: number;
+    private readonly WOTSLEN1: number;
+    private readonly WOTSLEN2: number = 3;
+    private readonly WOTSLEN: number;
+    private readonly WOTSSIGBYTES: number;
+    private readonly XMSS_HASH_PADDING_F: number = 0;
+    private readonly XMSS_HASH_PADDING_PRF: number = 3;
 
-  constructor() {
-    this.WOTSLEN1 = (8 * this.PARAMSN / this.WOTSLOGW)
-    this.WOTSLEN = this.WOTSLEN1 + this.WOTSLEN2
-    this.WOTSSIGBYTES = this.WOTSLEN * this.PARAMSN
-    this.validate_params()
-  }
+    constructor(params?: WOTSParams) {
+        this.PARAMSN = params?.n ?? 32;
+        this.WOTSW = params?.w ?? 16;
+        this.WOTSLOGW = params?.logW ?? 4;
+        this.WOTSLEN1 = (8 * this.PARAMSN / this.WOTSLOGW);
+        this.WOTSLEN = this.WOTSLEN1 + this.WOTSLEN2;
+        this.WOTSSIGBYTES = this.WOTSLEN * this.PARAMSN;
+    }
 
-  public generateKeyPairFrom(wots_seed: string, tag?: string): Uint8Array {
-    // if (!wots_seed) {
-    //   throw new Error('Seed is required')
-    // }
+    public generateKeyPairFrom(seed: string, tag: string): Uint8Array {
+        // seed = sha256_ascii( seed + "seed")
+        const encoder = new TextEncoder();
+        const seedBytes = this.sha256(encoder.encode(seed + 'seed'));
+        const pubSeed = this.sha256(encoder.encode(seed + 'publ'));
+        const addr = this.sha256(encoder.encode(seed + 'addr'));
 
-    // Add tag validation
-    if (tag !== undefined) {
-      if (tag.length !== 24) {
-        // Use default tag for invalid length
-        tag = undefined
-      } else {
-        // Check if tag contains only valid hex characters (0-9, A-F)
-        const validHex = /^[0-9A-F]{24}$/i
-        if (!validHex.test(tag)) {
-          throw new Error('Invalid tag format')
+        const wots = this.wotsPublicKeyGen(seedBytes, pubSeed, addr);
+
+        // append tag to the public key
+        const tagBytes = this.hexToBytes(tag);
+        const publicKey = new Uint8Array(wots.length + pubSeed.length + 20 + tagBytes.length);
+        publicKey.set(wots);
+        publicKey.set(pubSeed, wots.length);
+        // first 20 bytes of pubseed
+        publicKey.set(pubSeed.slice(0, 20), wots.length + pubSeed.length);
+        publicKey.set(tagBytes, wots.length + pubSeed.length + 20);
+
+        console.log("publicKey length", publicKey.length);
+
+        return publicKey;
+    }
+
+    public generateSignatureFrom(seed: string, payload: Uint8Array): Uint8Array {
+        const encoder = new TextEncoder();
+        const seedBytes = this.sha256(encoder.encode(seed + 'seed'));
+        const pubSeed = this.sha256(encoder.encode(seed + 'publ'));
+        const addr = this.sha256(encoder.encode(seed + 'addr'));
+
+        const message = this.sha256(payload);
+
+        console.log("message to sign in hex", this.bytesToHex(message));
+
+        return this.wotsSign(message, seedBytes, pubSeed, addr);
+    }
+
+
+    public wotsPublicKeyGen(
+        seed: Uint8Array, 
+        pubSeed: Uint8Array, 
+        addrBytes: Uint8Array
+    ): Uint8Array {
+        const addr = this.bytesToAddr(addrBytes);
+        const privateKey = this.expandSeed(seed);
+        const cachePk = new Uint8Array(this.WOTSSIGBYTES);
+        let offset = 0;
+
+        for (let i = 0; i < this.WOTSLEN; i++) {
+            this.setChainAddr(i, addr);
+            const privKeyPortion = privateKey.slice(i * this.PARAMSN, (i + 1) * this.PARAMSN);
+            const chain = this.genChain(privKeyPortion, 0, this.WOTSW - 1, pubSeed, addr);
+            cachePk.set(chain, offset);
+            offset += this.PARAMSN;
         }
-      }
+
+        return cachePk;
     }
 
-    const private_seed = this.sha256(wots_seed + "seed")
-    const public_seed = this.sha256(wots_seed + "publ")
-    const addr_seed = this.sha256(wots_seed + "addr")
-    
-    let wots_public = this.public_key_gen(private_seed, public_seed, addr_seed)
-    
-    // Create a single array with all components
-    const totalLength = wots_public.length + public_seed.length + 20 + 12
-    const result = new Uint8Array(totalLength)
-    
-    let offset = 0
-    result.set(wots_public, offset)
-    offset += wots_public.length
-    
-    result.set(public_seed, offset)
-    offset += public_seed.length
-    
-    result.set(addr_seed.slice(0, 20), offset)
-    offset += 20
-    
-    // Add tag
-    const tagBytes = !tag || tag.length !== 24 
-      ? new Uint8Array([66, 0, 0, 0, 14, 0, 0, 0, 1, 0, 0, 0])
-      : this.hexToBytes(tag)
-    result.set(tagBytes, offset)
-    
-    return result
-  }
+    public wotsSign(
+        msg: Uint8Array,
+        seed: Uint8Array,
+        pubSeed: Uint8Array,
+        addrBytes: Uint8Array
+    ): Uint8Array {
+        const addr = this.bytesToAddr(addrBytes);
+        const lengths = this.chainLengths(msg);
+        const signature = new Uint8Array(this.WOTSSIGBYTES);
+        const privateKey = this.expandSeed(seed);
+        let offset = 0;
 
-  public generateSignatureFrom(wots_seed: string, payload: Uint8Array): Uint8Array {
-    const private_seed = this.sha256(wots_seed + "seed")
-    const public_seed = this.sha256(wots_seed + "publ")
-    const addr_seed = this.sha256(wots_seed + "addr")
-    const to_sign = this.sha256(payload)
-    
-    return this.wots_sign(to_sign, private_seed, public_seed, addr_seed)
-  }
+        for (let i = 0; i < this.WOTSLEN; i++) {
+            this.setChainAddr(i, addr);
+            const privKeyPortion = privateKey.slice(i * this.PARAMSN, (i + 1) * this.PARAMSN);
+            const chain = this.genChain(privKeyPortion, 0, lengths[i], pubSeed, addr);
+            signature.set(chain, offset);
+            offset += this.PARAMSN;
+        }
 
-  public sha256(input: string | Uint8Array): Uint8Array {
-    if (typeof input === 'string') {
-      const hash = CryptoJS.SHA256(input)
-      return new Uint8Array(this.hexToBytes(hash.toString()))
-    } else {
-      const hash = CryptoJS.SHA256(this.bytesToHex(input))
-      return new Uint8Array(this.hexToBytes(hash.toString()))
-    }
-  }
-
-  public hexToBytes(hex: string): number[] {
-    const bytes: number[] = []
-    for (let i = 0; i < hex.length; i += 2) {
-      bytes.push(parseInt(hex.substr(i, 2), 16)) 
-    }
-    return bytes
-  }
-
-  public bytesToHex(bytes: Uint8Array): string {
-    return Array.from(bytes)
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('')
-  }
-
-  /**
-   * Generates WOTS public key from private key
-   */
-  private public_key_gen(seed: Uint8Array, pub_seed: Uint8Array, addr_bytes: Uint8Array): Uint8Array {
-    const private_key = this.expand_seed(seed)
-    const public_key = new Uint8Array(this.WOTSSIGBYTES)
-    let addr = this.bytes_to_addr(addr_bytes)
-
-    for (let i = 0; i < this.WOTSLEN; i++) {
-      this.set_chain_addr(i, addr)
-      const private_key_portion = private_key.slice(i * this.PARAMSN, (i + 1) * this.PARAMSN)
-      const chain = this.gen_chain(
-        private_key_portion,
-        0,
-        this.WOTSW - 1,
-        pub_seed,
-        addr
-      )
-      public_key.set(chain, i * this.PARAMSN)
+        return signature;
     }
 
-    return public_key
-  }
+    public wotsVerify(
+        sig: Uint8Array,
+        msg: Uint8Array,
+        pubSeed: Uint8Array,
+        addrBytes: Uint8Array
+    ): Uint8Array {
+        const addr = this.bytesToAddr(addrBytes);
+        const lengths = this.chainLengths(msg);
+        const publicKey = new Uint8Array(this.WOTSSIGBYTES);
+        let offset = 0;
 
-  /**
-   * Signs a message using WOTS
-   */
-  private wots_sign(msg: Uint8Array, seed: Uint8Array, pub_seed: Uint8Array, addr_bytes: Uint8Array): Uint8Array {
-    const private_key = this.expand_seed(seed)
-    const signature = new Uint8Array(this.WOTSSIGBYTES)
-    const lengths = this.chain_lengths(msg)
-    let addr = this.bytes_to_addr(addr_bytes)
+        for (let i = 0; i < this.WOTSLEN; i++) {
+            this.setChainAddr(i, addr);
+            const sigPortion = sig.slice(i * this.PARAMSN, (i + 1) * this.PARAMSN);
+            const chain = this.genChain(
+                sigPortion,
+                lengths[i],
+                this.WOTSW - 1 - lengths[i],
+                pubSeed,
+                addr
+            );
+            publicKey.set(chain, offset);
+            offset += this.PARAMSN;
+        }
 
-    for (let i = 0; i < this.WOTSLEN; i++) {
-      this.set_chain_addr(i, addr)
-      const private_key_portion = private_key.slice(i * this.PARAMSN, (i + 1) * this.PARAMSN)
-      const chain = this.gen_chain(
-        private_key_portion,
-        0,
-        lengths[i],
-        pub_seed,
-        addr
-      )
-      signature.set(chain, i * this.PARAMSN)
+        return publicKey;
     }
 
-    return signature
-  }
-
-  /**
-   * Verifies a WOTS signature
-   */
-  private wots_publickey_from_sig(
-    sig: Uint8Array,
-    msg: Uint8Array,
-    pub_seed: Uint8Array,
-    addr_bytes: Uint8Array
-  ): Uint8Array {
-    let addr = this.bytes_to_addr(addr_bytes)
-    const lengths = this.chain_lengths(msg)
-    const public_key = new Uint8Array(this.WOTSSIGBYTES)
-
-    for (let i = 0; i < this.WOTSLEN; i++) {
-      this.set_chain_addr(i, addr)
-      const sig_portion = sig.slice(i * this.PARAMSN, (i + 1) * this.PARAMSN)
-      const chain = this.gen_chain(
-        sig_portion,
-        lengths[i],
-        this.WOTSW - 1 - lengths[i],
-        pub_seed,
-        addr
-      )
-      public_key.set(chain, i * this.PARAMSN)
+    private sha256(input: Uint8Array): Uint8Array {
+        const hash = createHash('sha256');
+        hash.update(Buffer.from(input));
+        return new Uint8Array(hash.digest());
     }
 
-    return public_key
-  }
-
-  /**
-   * Expands seed into private key
-   */
-  private expand_seed(seed: Uint8Array): Uint8Array {
-    const private_key = new Uint8Array(this.WOTSSIGBYTES)
-
-    for (let i = 0; i < this.WOTSLEN; i++) {
-      const ctr = this.ull_to_bytes(this.PARAMSN, [i])
-      const portion = this.prf(ctr, seed)
-      private_key.set(portion, i * this.PARAMSN)
+    private expandSeed(seed: Uint8Array): Uint8Array {
+        const outSeeds = new Uint8Array(this.WOTSLEN * this.PARAMSN);
+        for (let i = 0; i < this.WOTSLEN; i++) {
+            const ctr = this.ullToBytes(this.PARAMSN, new Uint8Array([i]));
+            const expanded = this.prf(ctr, seed);
+            outSeeds.set(expanded, i * this.PARAMSN);
+        }
+        return outSeeds;
     }
 
-    return private_key
-  }
+    private prf(input: Uint8Array, key: Uint8Array): Uint8Array {
+        const buf = new Uint8Array(this.PARAMSN * 3);
+        let offset = 0;
 
-  /**
-   * Generates hash chain
-   */
-  private gen_chain(
-    input: Uint8Array,
-    start: number,
-    steps: number,
-    pub_seed: Uint8Array,
-    addr: Record<string, Uint8Array>
-  ): Uint8Array {
-    let out = new Uint8Array(input)
-    
-    for (let i = start; i < start + steps && i < this.WOTSW; i++) {
-      this.set_hash_addr(i, addr)
-      out = this.t_hash(out, pub_seed, addr)
+        buf.set(this.ullToBytes(this.PARAMSN, new Uint8Array([this.XMSS_HASH_PADDING_PRF])), offset);
+        offset += this.PARAMSN;
+        buf.set(this.byteCopy(key, this.PARAMSN), offset);
+        offset += this.PARAMSN;
+        buf.set(this.byteCopy(input, this.PARAMSN), offset);
+
+        return this.sha256(buf);
     }
 
-    return out
-  }
-
-  /**
-   * Computes PRF using SHA-256
-   */
-  private prf(input: Uint8Array, key: Uint8Array): Uint8Array {
-    const buf = new Uint8Array(32 * 3)
-    
-    // Add padding
-    buf.set(this.ull_to_bytes(this.PARAMSN, [this.XMSS_HASH_PADDING_PRF]))
-    
-    // Add key and input
-    const byte_copied_key = this.byte_copy(key, this.PARAMSN)
-    buf.set(byte_copied_key, this.PARAMSN)
-    
-    const byte_copied_input = this.byte_copy(input, 32)
-    buf.set(byte_copied_input, this.PARAMSN * 2)
-    
-    return this.sha256(buf)
-  }
-
-  /**
-   * Computes t_hash for WOTS chain
-   */
-  private t_hash(input: Uint8Array, pub_seed: Uint8Array, addr: Record<string, Uint8Array>): Uint8Array {
-    const buf = new Uint8Array(32 * 3)
-    let addr_bytes: Uint8Array
-    
-    // Add padding
-    buf.set(this.ull_to_bytes(this.PARAMSN, [this.XMSS_HASH_PADDING_F]))
-    
-    // Get key mask
-    this.set_key_and_mask(0, addr)
-    addr_bytes = this.addr_to_bytes(addr)
-    buf.set(this.prf(addr_bytes, pub_seed), this.PARAMSN)
-    
-    // Get bitmask
-    this.set_key_and_mask(1, addr)
-    addr_bytes = this.addr_to_bytes(addr)
-    const bitmask = this.prf(addr_bytes, pub_seed)
-    
-    // XOR input with bitmask
-    const XOR_bitmask_input = new Uint8Array(input.length)
-    for (let i = 0; i < this.PARAMSN; i++) {
-      XOR_bitmask_input[i] = input[i] ^ bitmask[i]
-    }
-    buf.set(XOR_bitmask_input, this.PARAMSN * 2)
-    
-    return this.sha256(buf)
-  }
-
-  /**
-   * Converts number array to bytes with specified length
-   */
-  private ull_to_bytes(outlen: number, input: number[]): Uint8Array {
-    const out = new Uint8Array(outlen)
-    for (let i = outlen - 1; i >= 0; i--) {
-      out[i] = input[i] || 0
-    }
-    return out
-  }
-
-  /**
-   * Copies bytes with specified length
-   */
-  private byte_copy(source: Uint8Array, num_bytes: number): Uint8Array {
-    const output = new Uint8Array(num_bytes)
-    for (let i = 0; i < num_bytes; i++) {
-      output[i] = source[i] || 0
-    }
-    return output
-  }
-
-  /**
-   * Converts address to bytes
-   */
-  private addr_to_bytes(addr: Record<string, Uint8Array>): Uint8Array {
-    const out_bytes = new Uint8Array(32)
-    for (let i = 0; i < 8; i++) {
-      const chunk = addr[i.toString()] || new Uint8Array(4)
-      out_bytes.set(chunk, i * 4)
-    }
-    return out_bytes
-  }
-
-  /**
-   * Converts bytes to address
-   */
-  private bytes_to_addr(addr_bytes: Uint8Array): Record<string, Uint8Array> {
-    const out_addr: Record<string, Uint8Array> = {}
-    for (let i = 0; i < 8; i++) {
-      out_addr[i.toString()] = this.ull_to_bytes(4, Array.from(addr_bytes.slice(i * 4, (i + 1) * 4)))
-    }
-    return out_addr
-  }
-
-  /**
-   * Sets chain address
-   */
-  private set_chain_addr(chain_address: number, addr: Record<string, Uint8Array>): void {
-    addr['5'] = new Uint8Array([0, 0, 0, chain_address])
-  }
-
-  /**
-   * Sets hash address
-   */
-  private set_hash_addr(hash: number, addr: Record<string, Uint8Array>): void {
-    addr['6'] = new Uint8Array([0, 0, 0, hash])
-  }
-
-  /**
-   * Sets key and mask
-   */
-  private set_key_and_mask(key_and_mask: number, addr: Record<string, Uint8Array>): void {
-    addr['7'] = new Uint8Array([0, 0, 0, key_and_mask])
-  }
-
-  /**
-   * Calculates chain lengths from message
-   */
-  private chain_lengths(msg: Uint8Array): Uint8Array {
-    const msg_base_w = this.base_w(this.WOTSLEN1, msg)
-    const csum_base_w = this.wots_checksum(msg_base_w)
-    
-    // Combine message and checksum base-w values
-    const lengths = new Uint8Array(this.WOTSLEN)
-    lengths.set(msg_base_w)
-    lengths.set(csum_base_w, this.WOTSLEN1)
-    
-    return lengths
-  }
-
-  /**
-   * Converts bytes to base-w representation
-   */
-  private base_w(outlen: number, input: Uint8Array): Uint8Array {
-    const output = new Uint8Array(outlen)
-    let in_ = 0
-    let total = 0
-    let bits = 0
-
-    for (let i = 0; i < outlen; i++) {
-      if (bits === 0) {
-        total = input[in_]
-        in_++
-        bits += 8
-      }
-      bits -= this.WOTSLOGW
-      output[i] = (total >> bits) & (this.WOTSW - 1)
+    private genChain(
+        input: Uint8Array,
+        start: number,
+        steps: number,
+        pubSeed: Uint8Array,
+        addr: WOTSAddress
+    ): Uint8Array {
+        let out = this.byteCopy(input, this.PARAMSN);
+        
+        for (let i = start; i < (start + steps) && i < this.WOTSW; i++) {
+            this.setHashAddr(i, addr);
+            out = this.tHash(out, pubSeed, addr);
+        }
+        return out;
     }
 
-    return output
-  }
+    private tHash(
+        input: Uint8Array,
+        pubSeed: Uint8Array,
+        addr: WOTSAddress
+    ): Uint8Array {
+        const buf = new Uint8Array(this.PARAMSN * 3);
+        let offset = 0;
 
-  /**
-   * Computes WOTS checksum
-   */
-  private wots_checksum(msg_base_w: Uint8Array): Uint8Array {
-    let csum = 0
-    
-    // Calculate checksum
-    for (let i = 0; i < this.WOTSLEN1; i++) {
-      csum += this.WOTSW - 1 - msg_base_w[i]
+        buf.set(this.ullToBytes(this.PARAMSN, new Uint8Array([this.XMSS_HASH_PADDING_F])), offset);
+        offset += this.PARAMSN;
+
+        this.setKeyAndMask(0, addr);
+        const addrAsBytes = this.addrToBytes(addr);
+        const key = this.prf(addrAsBytes, pubSeed);
+        buf.set(key, offset);
+        offset += this.PARAMSN;
+
+        this.setKeyAndMask(1, addr);
+        const bitmask = this.prf(this.addrToBytes(addr), pubSeed);
+        const xorInput = new Uint8Array(input.length);
+        for (let i = 0; i < input.length; i++) {
+            xorInput[i] = input[i] ^ bitmask[i];
+        }
+        buf.set(xorInput, offset);
+
+        return this.sha256(buf);
     }
 
-    // Convert checksum to base_w
-    csum = csum << (8 - ((this.WOTSLEN2 * this.WOTSLOGW) % 8))
-    
-    const csum_bytes = this.int_to_bytes(csum)
-    const csum_base_w = this.base_w(
-      this.WOTSLEN2, 
-      this.byte_copy(csum_bytes, Math.floor((this.WOTSLEN2 * this.WOTSLOGW + 7) / 8))
-    )
-    
-    return csum_base_w
-  }
-
-  /**
-   * Converts integer to bytes
-   */
-  private int_to_bytes(value: number): Uint8Array {
-    const bytes = new Uint8Array(8)
-    for (let i = 7; i >= 0; i--) {
-      bytes[i] = value & 0xff
-      value = value >> 8
+    private chainLengths(msg: Uint8Array): Uint8Array {
+        const lengths = this.baseW(this.WOTSLEN1, msg);
+        const checksum = this.wotsChecksum(lengths);
+        const result = new Uint8Array(this.WOTSLEN);
+        result.set(lengths);
+        result.set(checksum, this.WOTSLEN1);
+        return result;
     }
-    return bytes
-  }
 
+    private baseW(outlen: number, input: Uint8Array): Uint8Array {
+        const output = new Uint8Array(outlen);
+        let inIdx = 0;
+        let outIdx = 0;
+        let bits = 0;
+        let total = 0;
 
-  /**
-   * Validates input parameters
-   */
-  private validate_params(): void {
-    if (this.PARAMSN !== 32) {
-      throw new Error('PARAMSN must be 32')
+        for (let consumed = 0; consumed < outlen; consumed++) {
+            if (bits === 0) {
+                total = input[inIdx++] || 0;
+                bits = 8;
+            }
+            bits -= this.WOTSLOGW;
+            output[outIdx++] = (total >> bits) & (this.WOTSW - 1);
+        }
+        return output;
     }
-    if (this.WOTSW !== 16) {
-      throw new Error('WOTSW must be 16')
-    }
-    if (this.WOTSLOGW !== 4) {
-      throw new Error('WOTSLOGW must be 4')
-    }
-  }
 
-  /**
-   * Initializes WOTS instance
-   */
-  public init(): void {
-    this.validate_params()
-  }
+    private wotsChecksum(msgBaseW: Uint8Array): Uint8Array {
+        let csum = 0;
+        for (let i = 0; i < this.WOTSLEN1; i++) {
+            csum += this.WOTSW - 1 - msgBaseW[i];
+        }
 
-  // Add array extension functionality
-  private concatUint8Arrays(...arrays: Uint8Array[]): Uint8Array {
-    const totalLength = arrays.reduce((acc, arr) => acc + arr.length, 0)
-    const result = new Uint8Array(totalLength)
-    let offset = 0
-    
-    for (const arr of arrays) {
-      result.set(arr, offset)
-      offset += arr.length
+        csum = csum << (8 - ((this.WOTSLEN2 * this.WOTSLOGW) % 8));
+        const csumBytes = this.ullToBytes(
+            Math.ceil((this.WOTSLEN2 * this.WOTSLOGW + 7) / 8),
+            this.fromIntToByteArray(csum)
+        );
+
+        return this.baseW(this.WOTSLEN2, csumBytes);
     }
-    
-    return result
-  }
 
-  /**
-   * Verifies a signature
-   */
-  public verifySignature(
-    signature: Uint8Array,
-    message: Uint8Array,
-    pubSeed: Uint8Array,
-    addrSeed: Uint8Array
-  ): Uint8Array {
-    const messageHash = this.sha256(message)
-    return this.wots_publickey_from_sig(
-      signature,
-      messageHash,
-      pubSeed,
-      addrSeed
-    )
-  }
+    private byteCopy(source: Uint8Array, numBytes: number): Uint8Array {
+        const result = new Uint8Array(numBytes);
+        result.set(source.slice(0, numBytes));
+        return result;
+    }
+
+    private fromIntToByteArray(num: number): Uint8Array {
+        if (num === 0) return new Uint8Array([0]);
+        
+        const bytes = [];
+        while (num > 0) {
+            bytes.push(num & 0xff);
+            num = num >> 8;
+        }
+        return new Uint8Array(bytes);
+    }
+
+    private setChainAddr(chainAddress: number, addr: WOTSAddress): void {
+        addr['5'] = new Uint8Array([0, 0, 0, chainAddress]);
+    }
+
+    private setHashAddr(hash: number, addr: WOTSAddress): void {
+        addr['6'] = new Uint8Array([0, 0, 0, hash]);
+    }
+
+    private setKeyAndMask(keyAndMask: number, addr: WOTSAddress): void {
+        addr['7'] = new Uint8Array([0, 0, 0, keyAndMask]);
+    }
+
+    private addrToBytes(addr: WOTSAddress): Uint8Array {
+        const outBytes = new Uint8Array(32);
+        for (let i = 0; i < 8; i++) {
+            const key = i.toString();
+            const value = addr[key] || new Uint8Array(4);
+            outBytes.set(value, i * 4);
+        }
+        return outBytes;
+    }
+
+    private bytesToAddr(addrBytes: Uint8Array): WOTSAddress {
+        const addr: WOTSAddress = {};
+        for (let i = 0; i < 8; i++) {
+            addr[i.toString()] = this.ullToBytes(4, addrBytes.slice(i * 4, (i + 1) * 4));
+        }
+        return addr;
+    }
+
+    private ullToBytes(numBytes: number, num: Uint8Array): Uint8Array {
+        const result = new Uint8Array(numBytes);
+        result.set(num.slice(0, numBytes));
+        return result;
+    }
+
+    public bytesToHex(bytes: Uint8Array): string {
+        return Buffer.from(bytes).toString('hex');
+    }
+
+    public hexToBytes(hex: string): Uint8Array {
+        return new Uint8Array(Buffer.from(hex, 'hex'));
+    }
 }
+
+
 
 //////
 
@@ -706,7 +568,7 @@ export class MochimoRosettaClient {
     private baseUrl: string;
     public networkIdentifier: NetworkIdentifier;
 
-    constructor(baseUrl: string = 'http://0.0.0.0:8080') {
+    constructor(baseUrl: string = 'http://localhost:8080') {
         this.baseUrl = baseUrl;
         this.networkIdentifier = {
             blockchain: 'mochimo',
@@ -716,7 +578,8 @@ export class MochimoRosettaClient {
 
     private async post<T>(endpoint: string, data: any): Promise<T> {
         //console.log(`Sending request to ${this.baseUrl}${endpoint}`);
-        console.log('Request data:', JSON.stringify(data, null, 2));
+        console.log('Request data to:', endpoint);
+        console.log(JSON.stringify(data, null, 2));
         
         const response = await fetch(`${this.baseUrl}${endpoint}`, {
             method: 'POST',
@@ -727,7 +590,8 @@ export class MochimoRosettaClient {
         });
 
         const responseData = await response.json();
-        console.log('Response:', JSON.stringify(responseData, null, 2));
+        //console.log('Response from', endpoint);
+        //console.log(JSON.stringify(responseData, null, 2));
 
         if (!response.ok) {
             throw new Error(`API Error: ${JSON.stringify(responseData)}`);
@@ -949,9 +813,9 @@ export class TransactionManager {
         const metadataResponse = await this.client.constructionMetadata(preprocessResponse.options);
 
         const senderBalance: number = Number(metadataResponse.metadata.source_balance || '0');
-        operations[0].amount.value = String(-(senderBalance));  // Convert to string
-        operations[1].amount.value = String(amount);  // Convert to string
-        operations[2].amount.value = String(senderBalance - amount - miner_fee);  // Convert to string
+        operations[0].amount.value = (-senderBalance).toString();  // Fix negative conversion
+        operations[1].amount.value = amount.toString();  
+        operations[2].amount.value = (senderBalance - amount - miner_fee).toString();
 
         // Append operation 3 mining fee
         operations.push({
@@ -989,17 +853,47 @@ export class TransactionManager {
         // Sign the transaction
         this.status_string = 'Signing transaction...';
         console.log("status_string", this.status_string);
-        const to_sign = new Uint8Array(this.wots.hexToBytes(payloadsResponse.unsigned_transaction));
+        //const payload = Buffer.from(payloadsResponse.unsigned_transaction, 'hex');
+        const payload = this.wots.hexToBytes(payloadsResponse.unsigned_transaction);
+        const payloadbytes = new Uint8Array(payload);
+        console.log(" payload length", payload.length);
         // hash the transaction
-        const hash = this.wots.sha256(to_sign);
+
         const signatureBytes = this.wots.generateSignatureFrom(
             this.wots_seed,
-            hash
-            );
+            payloadbytes);
+
+        // print payload bytes lenght
+        console.log("payloadbytes", payloadbytes.length);
+        // convert payloadbytes to hex and
+        console.log("payloadbytes", this.wots.bytesToHex(payloadbytes));
+
+          // Try to verify the signature
+          /*
+        const computedPublicKey = this.wots.verifySignature(
+            signatureBytes,
+            payloadbytes,
+            this.wots.sha256(this.wots_seed + 'publ'),
+            this.wots.sha256(this.wots_seed + 'addr')
+        );
+        
+
+        console.log("computedPublicKey", this.wots.bytesToHex(computedPublicKey));
+        console.log("public_key", this.wots.bytesToHex(this.public_key));
+
+        // say if they match
+        const expectedPublicKeyPart = this.public_key.slice(0, 2144);
+        if (this.wots.bytesToHex(computedPublicKey) !== this.wots.bytesToHex(expectedPublicKeyPart)) {
+            console.error("Public key mismatch:");
+            console.error("Computed:", this.wots.bytesToHex(computedPublicKey));
+            console.error("Expected:", this.wots.bytesToHex(expectedPublicKeyPart));
+            throw new Error("Signature verification failed");
+        }*/
 
         // Combine transaction
         this.status_string = 'Combining transaction parts...';
         console.log("status_string", this.status_string);
+
         
         // Create signature with matching hex bytes
         const signature: Signature = {
@@ -1015,12 +909,8 @@ export class TransactionManager {
             hex_bytes: this.wots.bytesToHex(signatureBytes)
         };
 
-        console.log("Debug - Validating signature payload match:");
-        console.log("Unsigned tx:", payloadsResponse.unsigned_transaction);
-        console.log("Signing payload:", signature.signing_payload.hex_bytes);
-
         // Verify the hex bytes match before sending
-        if (signature.signing_payload.hex_bytes !== payloadsResponse.unsigned_transaction) {
+        if (signature.signing_payload.hex_bytes !== payloadsResponse.unsigned_transaction) { 
             throw new Error("Signing payload hex bytes must match unsigned transaction");
         }
 
@@ -1038,11 +928,36 @@ export class TransactionManager {
 
         // Submit transaction
         this.status_string = 'Submitting transaction...';
+        console.log("status_string", this.status_string);
         const submitResponse = await this.client.constructionSubmit(
             combineResponse.signed_transaction
         );
 
         this.status_string = 'Transaction submitted successfully';
+        console.log("status_string", this.status_string);
+
+        // print the various parts of the hex signed transaction (three public keys 2208 bytes, 3 numbers 8 bytes, a signature 2144 bytes)
+        const source_address = combineResponse.signed_transaction.slice(0, 2208*2);
+        const destination_address = combineResponse.signed_transaction.slice(2208*2, 2208*2*2);
+        const change_address = combineResponse.signed_transaction.slice(2208*2*2, 2208*2*3);
+        const amount_hex = combineResponse.signed_transaction.slice(2208*2*3, 2208*2*3 + 8*2);
+        const change_hex = combineResponse.signed_transaction.slice(2208*2*3 + 8*2, 2208*2*3 + 8*2*2);
+        const fee_hex = combineResponse.signed_transaction.slice(2208*2*3 + 8*2*2, 2208*2*3 + 8*2*3);
+        const signature_hex = combineResponse.signed_transaction.slice(2208*2*3 + 8*2*3, 2208*2*3 + 8*2*3 + 2144*2);
+
+        console.log("source_address", source_address);
+        console.log("destination_address", destination_address);
+        console.log("change_address", change_address);
+        console.log("amount_hex", amount_hex);
+        console.log("change_hex", change_hex);
+        console.log("fee_hex", fee_hex);
+        console.log("signature_hex", signature_hex);
+
+        console.log("signature original", this.wots.bytesToHex(signatureBytes));
+
+        // print transaction unsigned payload
+        console.log("unsigned_transaction", payloadsResponse.unsigned_transaction);
+
         return submitResponse.transaction_identifier;
     }
 }

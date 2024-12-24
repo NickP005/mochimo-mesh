@@ -3,7 +3,6 @@ import { MochimoRosettaClient, Operation, PublicKey, WOTS, TransactionManager} f
 async function testMochimoRosettaClient() {
     const client = new MochimoRosettaClient();
     const wots = new WOTS();
-    wots.init();
     
     try {
         /*
@@ -127,16 +126,13 @@ async function testMochimoRosettaClient() {
             client,
             "c54572cb24e810fc2285aa4f310ce07ad3158a34e7fe8fc63287130935189800",      // wots_seed
             "b3b8c474d47198ba3237a16397ca267a6b2324eee3d8541ff074b74fc0d21101",      // next_wots_seed
-            "0e5989d23edfb582db3e730d",  // sender tag
+            "0e5989d23edfb582db3e730f",  // sender tag
             "985dfa821c48b8b1ff6802ca"   // receiver tag
         );
         const txResponse = await txManager.sendTransaction(
-            0,  // amount
+            1,  // amount
             500   // fee
         );
-
-        console.log('Transaction Response:', txResponse);
-
     } catch (error) {
         console.error('Test Error:', error);
         if (error instanceof Error) {
