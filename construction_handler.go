@@ -655,7 +655,7 @@ func constructionSubmitHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate the signed transaction
-	if len(req.SignedTransaction) < 2208*3+16*3+2144*2 {
+	if len(req.SignedTransaction) < 2208*3*2+8*3*2+2144*2 {
 		giveError(w, ErrInvalidRequest)
 		return
 	}
@@ -663,8 +663,10 @@ func constructionSubmitHandler(w http.ResponseWriter, r *http.Request) {
 	// Submit the transaction to the Mochimo blockchain
 	transaction := go_mcminterface.TransactionFromHex(req.SignedTransaction)
 
-	// Check if the transaction is valid
-	// TO IMPLEMENT LATER
+	// print the transaction
+	fmt.Printf("Transaction: %v\n", req.SignedTransaction)
+
+	// Check if the transaction is valid - TO DO LATER
 
 	// Send
 	err := go_mcminterface.SubmitTransaction(transaction)
