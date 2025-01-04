@@ -189,6 +189,7 @@ func constructionMetadataHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	source_balance, err := go_mcminterface.QueryBalance(req.Options["source_addr"].(string)[2:])
 	if err != nil {
+		fmt.Println("Source balance not found")
 		giveError(w, ErrAccountNotFound)
 		return
 	}
@@ -210,6 +211,7 @@ func constructionMetadataHandler(w http.ResponseWriter, r *http.Request) {
 
 					wotsAddr, err := go_mcminterface.QueryTagResolveHex(tagToResolve)
 					if err != nil {
+						fmt.Println("Tag not found")
 						giveError(w, ErrAccountNotFound)
 						return
 					}
@@ -678,7 +680,7 @@ func constructionSubmitHandler(w http.ResponseWriter, r *http.Request) {
 	// Construct the response
 	response := ConstructionSubmitResponse{
 		TransactionIdentifier: TransactionIdentifier{
-			Hash: req.SignedTransaction[2208*3+16*3 : 2208*3+16*3+2144*2],
+			Hash: hex.EncodeToString(transaction.GetHash()),
 		},
 		Metadata: map[string]interface{}{}, // Add any additional metadata if necessary
 	}
