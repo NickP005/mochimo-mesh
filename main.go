@@ -59,8 +59,8 @@ func main() {
 	r.HandleFunc("/construction/submit", constructionSubmitHandler).Methods("POST")
 
 	elapsed := time.Since(start_time)
-	log.Println("Server started in", elapsed, " seconds at :8080")
-	log.Fatal(http.ListenAndServe(":8080", r))
+	log.Println("Server started in", elapsed, " seconds at :8081")
+	log.Fatal(http.ListenAndServe(":8081", r))
 
 	/*
 		go_mcminterface.LoadSettings("interface_settings.json")
