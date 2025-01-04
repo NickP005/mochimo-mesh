@@ -1,5 +1,3 @@
-github.com/NickP005/go_mcminterface v0.1.13 h1:L5Llp2HhhnO8kyRrhnPd2oJIvrUPBiv3vCTGiMf9Rv0=
-github.com/NickP005/go_mcminterface v0.1.13/go.mod h1:MQWmzQw2qI5RpP7qzjvGQh8zBrInVDwjCxA7luK54rs=
 github.com/NickP005/go_mcminterface v0.1.15 h1:9KQxILNC8Cz1onp0psa1XNMQ3NQn6oXETtBTg4Tth0k=
 github.com/NickP005/go_mcminterface v0.1.15/go.mod h1:MQWmzQw2qI5RpP7qzjvGQh8zBrInVDwjCxA7luK54rs=
 github.com/gorilla/mux v1.8.1 h1:TuBL49tXwgrFYWhqrNgrUNEY92u81SPhu7sTdzQEiWY=
