@@ -131,6 +131,7 @@ func constructionPreprocessHandler(w http.ResponseWriter, r *http.Request) {
 
 	// check full address of 0 is set
 	if _, ok := operations[0].Account.Metadata["full_address"]; !ok {
+		fmt.Println("Full address not set", operations[0].Account.Address)
 		giveError(w, ErrInvalidRequest)
 		return
 	}
@@ -143,6 +144,13 @@ func constructionPreprocessHandler(w http.ResponseWriter, r *http.Request) {
 			options["resolve_tags"] = []string{}
 		}
 		options["resolve_tags"] = append(options["resolve_tags"].([]string), operations[1].Account.Address)
+	}
+
+	// Check that the source and the change addresses (full addresses) are different
+	if operations[0].Account.Metadata["full_address"].(string) == operations[2].Account.Metadata["full_address"].(string) {
+		fmt.Println("Source and change addresses are the same")
+		giveError(w, ErrInvalidRequest)
+		return
 	}
 
 	// Construct the response
