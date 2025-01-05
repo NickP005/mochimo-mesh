@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -389,8 +390,16 @@ func constructionPayloadsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Format hexadecimal with leading zeros
-	unsignedTransaction += fmt.Sprintf("%016x%016x%016x", send_total, change_total, tx_fee)
+	// Format amounts in little-endian hex
+	amountBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(amountBytes, send_total)
+	sendTotalHex := hex.EncodeToString(amountBytes)
+	binary.LittleEndian.PutUint64(amountBytes, change_total)
+	changeTotalHex := hex.EncodeToString(amountBytes)
+	binary.LittleEndian.PutUint64(amountBytes, tx_fee)
+	txFeeHex := hex.EncodeToString(amountBytes)
+
+	unsignedTransaction += sendTotalHex + changeTotalHex + txFeeHex
 
 	var payloads []SigningPayload
 
@@ -524,9 +533,14 @@ func constructionParseHandler(w http.ResponseWriter, r *http.Request) {
 	change_total_hex := req.Transaction[2208*3*2+8*2 : 2208*3*2+8*2*2]
 	tx_fee_hex := req.Transaction[2208*3*2+8*2*2 : 2208*3*2+8*2*3]
 
-	send_total, _ := strconv.ParseUint(send_total_hex, 16, 64)
-	change_total, _ := strconv.ParseUint(change_total_hex, 16, 64)
-	tx_fee, _ := strconv.ParseUint(tx_fee_hex, 16, 64)
+	// Parse amounts in little-endian
+	sendTotalBytes, _ := hex.DecodeString(send_total_hex)
+	changeTotalBytes, _ := hex.DecodeString(change_total_hex)
+	txFeeBytes, _ := hex.DecodeString(tx_fee_hex)
+
+	send_total := binary.LittleEndian.Uint64(sendTotalBytes)
+	change_total := binary.LittleEndian.Uint64(changeTotalBytes)
+	tx_fee := binary.LittleEndian.Uint64(txFeeBytes)
 
 	source_address := getAccountFromAddress(go_mcminterface.WotsAddressFromHex(source_address_hex))
 	operations = append(operations, Operation{
