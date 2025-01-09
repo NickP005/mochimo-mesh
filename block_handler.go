@@ -11,7 +11,6 @@ import (
 )
 
 func blockHandler(w http.ResponseWriter, r *http.Request) {
-	// Check for the correct network identifier
 	fmt.Println("checking identifiers")
 	req, err := checkIdentifier(r)
 	if err != nil {
@@ -39,26 +38,12 @@ type AccountIdentifier struct {
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
-/*
-if there is a tag, the address is just the tag, plus in the metadata the full wots address
-if there is no tag, the address is the full wots address
-*/
+// Convert to AccounIdentifier a WotsAddress struct. The tag is considered as the address.
 func getAccountFromAddress(address go_mcminterface.WotsAddress) AccountIdentifier {
-	// print the tag of the address
-	is_tagged := !address.IsDefaultTag()
-	if is_tagged {
-		tag_hex := "0x" + hex.EncodeToString(address.GetTAG())
-		wots_hex := "0x" + hex.EncodeToString(address.Address[:])
-		return AccountIdentifier{
-			Address:  tag_hex,
-			Metadata: map[string]interface{}{"full_address": wots_hex},
-		}
-	} else {
-		wots_hex := "0x" + hex.EncodeToString(address.Address[:])
-		return AccountIdentifier{
-			Address:  wots_hex,
-			Metadata: nil,
-		}
+	tag_hex := "0x" + hex.EncodeToString(address.GetTAG())
+
+	return AccountIdentifier{
+		Address: tag_hex,
 	}
 }
 
@@ -75,7 +60,6 @@ type Currency struct {
 	Decimals int    `json:"decimals"`
 }
 
-// Example constant for the Mochimo currency
 var MCMCurrency = Currency{
 	Symbol:   "MCM",
 	Decimals: 9,
@@ -89,7 +73,7 @@ type OperationIdentifier struct {
 
 // Operations contains the changes to the state.
 // Each TX has 4 operations: 1 for the source, 1 for the destination, and 1 for the change address.
-func getTransactionsFromBlockBody(txentries []go_mcminterface.TXQENTRY, maddr go_mcminterface.WotsAddress, is_success bool) []Transaction {
+func getTransactionsFromBlockBody(txentries []go_mcminterface.TXENTRY, maddr go_mcminterface.WotsAddress, is_success bool) []Transaction {
 	var transactions []Transaction
 	var status string = "SUCCESS"
 	if !is_success {
@@ -98,86 +82,45 @@ func getTransactionsFromBlockBody(txentries []go_mcminterface.TXQENTRY, maddr go
 	for _, tx := range txentries {
 		operations := []Operation{}
 
-		src := go_mcminterface.WotsAddressFromBytes(tx.Src_addr[:])
-		dst := go_mcminterface.WotsAddressFromBytes(tx.Dst_addr[:])
-		chg := go_mcminterface.WotsAddressFromBytes(tx.Chg_addr[:])
+		// Sent amount
+		txFee := tx.GetFee()
+		total_sent_amount := txFee
 
-		transferAmount := binary.LittleEndian.Uint64(tx.Send_total[:])
-		changeAmount := binary.LittleEndian.Uint64(tx.Change_total[:])
-		txFee := binary.LittleEndian.Uint64(tx.Tx_fee[:])
+		// Add every operation in TXENTRY
+		for i, op := range tx.GetDestinations() {
+			var sent_amount uint64 = binary.LittleEndian.Uint64(op.Amount[:])
+			total_sent_amount += sent_amount
 
-		/*if !src.IsDefaultTag() {
-		// Tagged source address: Transfer the amount and deduct the transaction fee
-		operations = append(operations, Operation{
-			OperationIdentifier: OperationIdentifier{
-				Index: 0,
-			},
-			Type:    "TRANSFER",
-			Status:  status,
-			Account: getAccountFromAddress(src),
-			Amount: Amount{
-				Value:    fmt.Sprintf("-%d", transferAmount+txFee),
-				Currency: MCMCurrency,
-			},
-		})
-
-		operations = append(operations, Operation{
-			OperationIdentifier: OperationIdentifier{
-				Index: 1,
-			},
-			Type:    "TRANSFER",
-			Status:  status,
-			Account: getAccountFromAddress(dst),
-			Amount: Amount{
-				Value:    fmt.Sprintf("%d", transferAmount),
-				Currency: MCMCurrency,
-			},
-		})
-		} else { */
-		// Non-tagged source address: Deduct transfer amount + transaction fee
-		operations = append(operations, Operation{
-			OperationIdentifier: OperationIdentifier{
-				Index: 0,
-			},
-			Type:    "TRANSFER",
-			Status:  status,
-			Account: getAccountFromAddress(src),
-			Amount: Amount{
-				Value:    fmt.Sprintf("-%d", changeAmount+transferAmount+txFee),
-				Currency: MCMCurrency,
-			},
-		})
-
-		operations = append(operations, Operation{
-			OperationIdentifier: OperationIdentifier{
-				Index: 1,
-			},
-			Type:    "TRANSFER",
-			Status:  status,
-			Account: getAccountFromAddress(dst),
-			Amount: Amount{
-				Value:    fmt.Sprintf("%d", transferAmount),
-				Currency: MCMCurrency,
-			},
-		})
-
-		// Only include change operation if changeAmount is 501 nMCM or more
-		if changeAmount < 501 {
-			changeAmount = 0
+			operations = append(operations, Operation{
+				OperationIdentifier: OperationIdentifier{
+					Index: i,
+				},
+				Type:    "DESTINATION_TRANSFER",
+				Status:  status,
+				Account: getAccountFromAddress(go_mcminterface.WotsAddressFromBytes(op.Tag[:])),
+				Amount: Amount{
+					Value:    fmt.Sprintf("%d", sent_amount),
+					Currency: MCMCurrency,
+				},
+				Metadata: map[string]interface{}{
+					"memo": op.GetReference(),
+				},
+			})
 		}
+
+		// Remove from source
 		operations = append(operations, Operation{
 			OperationIdentifier: OperationIdentifier{
-				Index: 2,
+				Index: len(operations),
 			},
-			Type:    "TRANSFER",
+			Type:    "SOURCE_TRANSFER",
 			Status:  status,
-			Account: getAccountFromAddress(chg),
+			Account: getAccountFromAddress((tx.GetSourceAddress())),
 			Amount: Amount{
-				Value:    fmt.Sprintf("%d", changeAmount),
+				Value:    fmt.Sprintf("-%d", total_sent_amount),
 				Currency: MCMCurrency,
 			},
 		})
-		//}
 
 		// Add transaction fee operation
 		operations = append(operations, Operation{
@@ -195,9 +138,12 @@ func getTransactionsFromBlockBody(txentries []go_mcminterface.TXQENTRY, maddr go
 
 		transaction := Transaction{
 			TransactionIdentifier: TransactionIdentifier{
-				Hash: fmt.Sprintf("0x%x", tx.Tx_id[:]),
+				Hash: fmt.Sprintf("0x%x", tx.GetID()),
 			},
 			Operations: operations,
+			Metadata: map[string]interface{}{
+				"block_to_live": fmt.Sprintf("0x%x", tx.GetBlockToLive()),
+			},
 		}
 
 		transactions = append(transactions, transaction)

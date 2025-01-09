@@ -50,21 +50,30 @@ func constructionDeriveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Derive the account address from the public key bytes
-	// This is a placeholder for whatever logic you use to derive an address
-	// from a public key in the Mochimo blockchain
-	var wots_address go_mcminterface.WotsAddress
-	if len(req.PublicKey.HexBytes) == 2208*2+2 {
-		wots_address = go_mcminterface.WotsAddressFromHex(req.PublicKey.HexBytes[2:])
-	} else if len(req.PublicKey.HexBytes) == 2208*2 {
-		wots_address = go_mcminterface.WotsAddressFromHex(req.PublicKey.HexBytes)
-	} else {
-		giveError(w, ErrInvalidAccountFormat)
+	/*
+		var wots_address go_mcminterface.WotsAddress
+		if len(req.PublicKey.HexBytes) == 2144*2+2 {
+			wots_address = go_mcminterface.WotsAddressFromHex(req.PublicKey.HexBytes[2:])
+		} else if len(req.PublicKey.HexBytes) == 2144*2 {
+			wots_address = go_mcminterface.WotsAddressFromHex(req.PublicKey.HexBytes)
+		} else {
+			giveError(w, ErrInvalidAccountFormat)
+			return
+		}
+
+		// Create the account identifier
+		accountIdentifier := getAccountFromAddress(wots_address)*/
+
+	// read from metadata the tag
+	if _, ok := req.Metadata["tag"]; !ok {
+		giveError(w, ErrInvalidRequest)
 		return
 	}
 
 	// Create the account identifier
-	accountIdentifier := getAccountFromAddress(wots_address)
+	accountIdentifier := AccountIdentifier{
+		Address: req.Metadata["tag"].(string),
+	}
 
 	// Construct the response
 	response := ConstructionDeriveResponse{
@@ -93,7 +102,6 @@ type ConstructionPreprocessResponse struct {
 func constructionPreprocessHandler(w http.ResponseWriter, r *http.Request) {
 	var req ConstructionPreprocessRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		//
 		fmt.Print("Error decoding request")
 		giveError(w, ErrInvalidRequest)
 		return
@@ -105,54 +113,48 @@ func constructionPreprocessHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Here you would typically analyze the operations to determine what metadata is needed
-	// For example, you might need to determine the account nonces or other network-specific details
+	// Get from metadata the block_to_live
+
 	options := make(map[string]interface{})
 	requiredPublicKeys := []AccountIdentifier{}
 
-	if len(req.Operations) != 3 {
+	// At least SOURCE_TRANSFER, DESTINATION_TRANSFER, FEE
+	operationTypes := make(map[string]int)
+	for _, op := range req.Operations {
+		operationTypes[op.Type]++
+	}
+
+	if n, ok := operationTypes["SOURCE_TRANSFER"]; !ok || n != 1 {
+		fmt.Println("SOURCE_TRANSFER not found or more than one")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
 
-	// Sort in operations by operation index
-	operations := make([]Operation, 3)
-	for _, op := range req.Operations {
-		operations[op.OperationIdentifier.Index] = op
-	}
-	// Check if the source (operation 0) is tagged, if it is check that the tag is the same as the change (operation 2)
-	if (len(operations[0].Account.Address) == 12*2+2) && operations[0].Account.Address != operations[2].Account.Address {
-		fmt.Println("Source and change addresses tags do not match")
+	if n, ok := operationTypes["DESTINATION_TRANSFER"]; !ok || n > 255 {
+		fmt.Println("DESTINATION_TRANSFER not found or more than 255")
 		giveError(w, ErrInvalidRequest)
 		return
+	}
+
+	if n, ok := operationTypes["FEE"]; !ok || n != 1 {
+		fmt.Println("FEE not found or more than one")
+		giveError(w, ErrInvalidRequest)
+		return
+	}
+
+	var source_operation Operation
+	for _, op := range req.Operations {
+		if op.Type == "SOURCE_TRANSFER" {
+			source_operation = op
+			break
+		}
 	}
 
 	// add to required public keys the address of the source
-	requiredPublicKeys = append(requiredPublicKeys, operations[0].Account)
+	requiredPublicKeys = append(requiredPublicKeys, source_operation.Account)
 
-	// check full address of 0 is set
-	if _, ok := operations[0].Account.Metadata["full_address"]; !ok {
-		fmt.Println("Full address not set", operations[0].Account.Address)
-		giveError(w, ErrInvalidRequest)
-		return
-	}
-	// set source_address to full_address
-	options["source_addr"] = operations[0].Account.Metadata["full_address"].(string)
-
-	if len(operations[1].Account.Address) == 12*2+2 /* && len(operations[1].Account.Metadata["full_address"].(string)) != 2208*2+2 */ {
-		// in options.resolve_tags add the tag
-		if _, ok := options["resolve_tags"]; !ok {
-			options["resolve_tags"] = []string{}
-		}
-		options["resolve_tags"] = append(options["resolve_tags"].([]string), operations[1].Account.Address)
-	}
-
-	// Check that the source and the change addresses (full addresses) are different
-	if operations[0].Account.Metadata["full_address"].(string) == operations[2].Account.Metadata["full_address"].(string) {
-		fmt.Println("Source and change addresses are the same")
-		giveError(w, ErrInvalidRequest)
-		return
-	}
+	// add to options the source address
+	options["source_addr"] = source_operation.Account.Address
 
 	// Construct the response
 	response := ConstructionPreprocessResponse{
@@ -203,37 +205,21 @@ func constructionMetadataHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// resolve tags (map of tags to addresses)
-	var tags map[string]string
-	if resolveTags, ok := req.Options["resolve_tags"]; ok {
-		tags = make(map[string]string)
-		// Convert the interface{} to []interface{} first
-		if tagList, ok := resolveTags.([]interface{}); ok {
-			for _, tag := range tagList {
-				// Convert each tag to string
-				if tagStr, ok := tag.(string); ok {
-					// Remove "0x" prefix if present for QueryTagResolve
-					tagToResolve := tagStr
-					if len(tagStr) > 2 && tagStr[:2] == "0x" {
-						tagToResolve = tagStr[2:]
-					}
-
-					wotsAddr, err := go_mcminterface.QueryTagResolveHex(tagToResolve)
-					if err != nil {
-						fmt.Println("Tag not found")
-						giveError(w, ErrAccountNotFound)
-						return
-					}
-					// Always store with "0x" prefix in the response
-					tags[tagStr] = "0x" + hex.EncodeToString(wotsAddr.Address[:])
-				}
-			}
-		}
+	// Check if there are public keys - TO MOVE TO PAYLOADS
+	if len(req.PublicKeys) != 1 {
+		giveError(w, ErrInvalidRequest)
+		return
 	}
+
+	// Read from the WOTS+ full address informations for signature
+	pk_bytes, _ := hex.DecodeString(req.PublicKeys[0].HexBytes)
+	source_addr := pk_bytes[len(pk_bytes)-32:]
+	source_public_seed := pk_bytes[len(pk_bytes)-64 : len(pk_bytes)-32]
 
 	metadata := map[string]interface{}{}
 	metadata["source_balance"] = source_balance
-	metadata["resolved_tags"] = tags
+	metadata["signature_source"] = hex.EncodeToString(source_addr)
+	metadata["signature_public_seed"] = hex.EncodeToString(source_public_seed)
 
 	response := ConstructionMetadataResponse{
 		Metadata: metadata,
@@ -245,7 +231,6 @@ func constructionMetadataHandler(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	// Encode the response as JSON
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
@@ -285,11 +270,40 @@ func constructionPayloadsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Four operations: source, destination, change, and fee
-	if len(req.Operations) != 4 {
-		fmt.Printf("Invalid number of operations: %d\n", len(req.Operations))
+	// Validate the minimum operations
+	operationTypes := make(map[string]int)
+	for _, op := range req.Operations {
+		operationTypes[op.Type]++
+	}
+
+	if n, ok := operationTypes["SOURCE_TRANSFER"]; !ok || n != 1 {
+		fmt.Println("SOURCE_TRANSFER not found or more than one")
 		giveError(w, ErrInvalidRequest)
 		return
+	}
+
+	if n, ok := operationTypes["DESTINATION_TRANSFER"]; !ok || n > 255 {
+		fmt.Println("DESTINATION_TRANSFER not found or more than 255")
+		giveError(w, ErrInvalidRequest)
+		return
+	}
+
+	if n, ok := operationTypes["FEE"]; !ok || n != 1 {
+		fmt.Println("FEE not found or more than one")
+		giveError(w, ErrInvalidRequest)
+		return
+	}
+
+	// Create a TXENTRY
+	var txentry go_mcminterface.TXENTRY = go_mcminterface.NewTXENTRY()
+
+	// Get the source operation
+	var source_operation Operation
+	for _, op := range req.Operations {
+		if op.Type == "SOURCE_TRANSFER" {
+			source_operation = op
+			break
+		}
 	}
 
 	// Generate the unsigned transaction which is a hex bytes representation of a TXENTRY
