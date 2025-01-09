@@ -49,7 +49,7 @@ func mempoolHandler(w http.ResponseWriter, r *http.Request) {
 	var txIdentifiers []TransactionIdentifier
 	for _, tx := range mempool {
 		txIdentifiers = append(txIdentifiers, TransactionIdentifier{
-			Hash: fmt.Sprintf("0x%x", tx.Tx_id[:]),
+			Hash: fmt.Sprintf("0x%x", tx.Tlr.ID[:]),
 		})
 	}
 
@@ -93,9 +93,9 @@ func mempoolTransactionHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Search for the transaction in the mempool
-	var foundTx *go_mcminterface.TXQENTRY
+	var foundTx *go_mcminterface.TXENTRY
 	for _, tx := range mempool {
-		if fmt.Sprintf("0x%x", tx.Tx_id[:]) == req.TransactionIdentifier.Hash {
+		if fmt.Sprintf("0x%x", tx.Tlr.ID[:]) == req.TransactionIdentifier.Hash {
 			foundTx = &tx
 			break
 		}
@@ -108,7 +108,7 @@ func mempoolTransactionHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert the found transaction to the response format
-	transaction := getTransactionsFromBlockBody([]go_mcminterface.TXQENTRY{*foundTx}, go_mcminterface.WotsAddress{}, false)[0]
+	transaction := getTransactionsFromBlockBody([]go_mcminterface.TXENTRY{*foundTx}, go_mcminterface.WotsAddress{}, false)[0]
 
 	// Create the response
 	response := MempoolTransactionResponse{

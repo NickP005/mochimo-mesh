@@ -156,6 +156,31 @@ func constructionPreprocessHandler(w http.ResponseWriter, r *http.Request) {
 	// add to options the source address
 	options["source_addr"] = source_operation.Account.Address
 
+	// Get from metadata the block_to_live
+	if _, ok := req.Metadata["block_to_live"]; !ok {
+		fmt.Println("Block to live not found")
+		giveError(w, ErrInvalidRequest)
+		return
+	}
+
+	options["block_to_live"] = req.Metadata["block_to_live"]
+
+	// Get from metadata the change address hash
+	if _, ok := req.Metadata["change_addr"]; !ok {
+		fmt.Println("Change address not found")
+		giveError(w, ErrInvalidRequest)
+		return
+	}
+
+	if len(req.Metadata["change_pk"].(string)) == 2144*2+2 {
+		wotsAddr := go_mcminterface.WotsAddressFromHex(req.Metadata["change_pk"].(string)[2:])
+		options["change_pk"] = "0x" + hex.EncodeToString(wotsAddr.Address[:20])
+	} else if len(req.Metadata["change_pk"].(string)) == 20*2+2 {
+		options["change_pk"] = "0x" + req.Metadata["change_pk"].(string)[2:]
+	} else {
+		giveError(w, ErrInvalidRequest)
+		return
+	}
 	// Construct the response
 	response := ConstructionPreprocessResponse{
 		Options:            options,
@@ -205,21 +230,17 @@ func constructionMetadataHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if there are public keys - TO MOVE TO PAYLOADS
-	if len(req.PublicKeys) != 1 {
+	metadata := make(map[string]interface{})
+	metadata["source_balance"] = source_balance
+
+	// Set the change_pk from options
+	if change_pk, ok := req.Options["change_pk"]; !ok || len(change_pk.(string)) != 20*2+2 {
+		fmt.Println("Change pk not found")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
 
-	// Read from the WOTS+ full address informations for signature
-	pk_bytes, _ := hex.DecodeString(req.PublicKeys[0].HexBytes)
-	source_addr := pk_bytes[len(pk_bytes)-32:]
-	source_public_seed := pk_bytes[len(pk_bytes)-64 : len(pk_bytes)-32]
-
-	metadata := map[string]interface{}{}
-	metadata["source_balance"] = source_balance
-	metadata["signature_source"] = hex.EncodeToString(source_addr)
-	metadata["signature_public_seed"] = hex.EncodeToString(source_public_seed)
+	metadata["change_pk"] = req.Options["change_pk"]
 
 	response := ConstructionMetadataResponse{
 		Metadata: metadata,
@@ -294,126 +315,90 @@ func constructionPayloadsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if there are public keys - TO MOVE TO PAYLOADS
+	if len(req.PublicKeys) != 1 {
+		giveError(w, ErrInvalidRequest)
+		return
+	}
+
+	// Read from the WOTS+ full address informations for signature
+	pk_bytes, _ := hex.DecodeString(req.PublicKeys[0].HexBytes)
+	//source_addr := pk_bytes[len(pk_bytes)-32:]
+	//source_public_seed := pk_bytes[len(pk_bytes)-64 : len(pk_bytes)-32]
+	pk_hash := go_mcminterface.AddrHashGenerate(pk_bytes[:2144])
+
 	// Create a TXENTRY
 	var txentry go_mcminterface.TXENTRY = go_mcminterface.NewTXENTRY()
 
-	// Get the source operation
-	var source_operation Operation
+	txentry.SetSignatureScheme("wotsp")
+
+	var send_total uint64 = 0
+	var change_total uint64 = 0
+	var source_total uint64 = req.Metadata["source_balance"].(uint64)
+
+	// For every operation
 	for _, op := range req.Operations {
-		if op.Type == "SOURCE_TRANSFER" {
-			source_operation = op
-			break
+		if op.Type == "DESTINATION_TRANSFER" {
+			amount, _ := strconv.ParseUint(op.Amount.Value, 10, 64)
+
+			DST := go_mcminterface.NewDSTFromString(op.Account.Address[2:], op.Metadata["memo"].(string), amount)
+			txentry.AddDestination(DST)
+
+			send_total += amount
+		} else if op.Type == "SOURCE_TRANSFER" {
+			var source_address go_mcminterface.WotsAddress
+			tagBytes, err := hex.DecodeString(op.Account.Address[2:])
+			if err != nil {
+				fmt.Println("Error decoding source address")
+				giveError(w, ErrInvalidRequest)
+				return
+			}
+			source_address.SetTAG(tagBytes)
+			source_address.SetAddress(pk_hash)
+			txentry.SetSourceAddress(source_address)
+
+			var change_address go_mcminterface.WotsAddress
+			change_pk, err := hex.DecodeString(req.Metadata["change_pk"].(string)[2:])
+			if err != nil {
+				fmt.Println("Error decoding change address")
+				giveError(w, ErrInvalidRequest)
+				return
+			}
+			change_address.SetTAG(tagBytes)
+			change_address.SetAddress(change_pk)
+			txentry.SetChangeAddress(change_address)
+		} else if op.Type == "FEE" {
+			amount, _ := strconv.ParseUint(op.Amount.Value, 10, 64)
+
+			txentry.SetFee(amount)
 		}
 	}
 
-	// Generate the unsigned transaction which is a hex bytes representation of a TXENTRY
-	var unsignedTransaction string
+	txentry.SetSendTotal(send_total)
 
-	// append the source address
-	if len(req.Operations[0].Account.Address) != 2208*2+2 {
-		// check metadata has full_address
-		if _, ok := req.Operations[0].Account.Metadata["full_address"]; !ok || len(req.Operations[0].Account.Metadata["full_address"].(string)) != 2208*2+2 {
-			giveError(w, ErrInvalidRequest)
-			return
-		}
-		unsignedTransaction += req.Operations[0].Account.Metadata["full_address"].(string)[2:]
-	} else if len(req.Operations[0].Account.Address) == 2208*2+2 {
-		unsignedTransaction += req.Operations[0].Account.Address[2:]
-	} else {
-		giveError(w, ErrInvalidRequest)
-		return
-	}
+	change_total = source_total - (send_total + txentry.GetFee())
+	txentry.SetChangeTotal(change_total)
 
-	// append the destination address, this time we check also in metadata.resolved_tags
-	if len(req.Operations[1].Account.Address) != 2208*2+2 {
-		// First check if there's a full_address in metadata
-		if fullAddr, ok := req.Operations[1].Account.Metadata["full_address"]; ok {
-			if fullAddrStr, ok := fullAddr.(string); ok && len(fullAddrStr) == 2208*2+2 {
-				unsignedTransaction += fullAddrStr[2:]
-			} else {
-				giveError(w, ErrInvalidRequest)
-				return
-			}
-		} else {
-			// Try to get the address from resolved_tags
-			if req.Metadata == nil {
-				giveError(w, ErrInvalidRequest)
-				return
-			}
-
-			resolvedTags, ok := req.Metadata["resolved_tags"].(map[string]interface{})
-			if !ok {
-				giveError(w, ErrInvalidRequest)
-				return
-			}
-
-			resolvedAddr, ok := resolvedTags[req.Operations[1].Account.Address].(string)
-			if !ok {
-				giveError(w, ErrInvalidRequest)
-				return
-			}
-
-			if len(resolvedAddr) != 2208*2+2 {
-				giveError(w, ErrInvalidRequest)
-				return
-			}
-
-			unsignedTransaction += resolvedAddr[2:]
-		}
-	} else if len(req.Operations[1].Account.Address) == 2208*2+2 {
-		unsignedTransaction += req.Operations[1].Account.Address[2:]
-	} else {
-		giveError(w, ErrInvalidRequest)
-		return
-	}
-
-	// append the change address
-	if len(req.Operations[2].Account.Address) != 2208*2+2 {
-		// check metadata has full_address
-		if _, ok := req.Operations[2].Account.Metadata["full_address"]; !ok || len(req.Operations[2].Account.Metadata["full_address"].(string)) != 2208*2+2 {
-			giveError(w, ErrInvalidRequest)
-			return
-		}
-		unsignedTransaction += req.Operations[2].Account.Metadata["full_address"].(string)[2:]
-	} else if len(req.Operations[2].Account.Address) == 2208*2+2 {
-		unsignedTransaction += req.Operations[2].Account.Address[2:]
-	} else {
-		giveError(w, ErrInvalidRequest)
-		return
-	}
-
-	// Parse amounts with error handling
-	send_total, err := strconv.ParseUint(req.Operations[1].Amount.Value, 10, 64)
+	// Set block to live
+	block_to_live, err := strconv.ParseUint(req.Metadata["block_to_live"].(string), 0, 64)
 	if err != nil {
-		fmt.Printf("Error parsing send total: %v\n", err)
+		fmt.Println("Error parsing block to live")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
+	txentry.SetBlockToLive(block_to_live)
 
-	change_total, err := strconv.ParseUint(req.Operations[2].Amount.Value, 10, 64)
-	if err != nil {
-		fmt.Printf("Error parsing change total: %v\n", err)
-		giveError(w, ErrInvalidRequest)
-		return
-	}
+	//var pubSeedArray [32]byte
+	//copy(pubSeedArray[:], source_public_seed)
+	//txentry.SetWotsSigPubSeed(pubSeedArray)
 
-	tx_fee, err := strconv.ParseUint(req.Operations[3].Amount.Value, 10, 64)
-	if err != nil {
-		fmt.Printf("Error parsing tx fee: %v\n", err)
-		giveError(w, ErrInvalidRequest)
-		return
-	}
+	//txentry.SetWotsSigAddresses(source_addr)
 
-	// Format amounts in little-endian hex
-	amountBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(amountBytes, send_total)
-	sendTotalHex := hex.EncodeToString(amountBytes)
-	binary.LittleEndian.PutUint64(amountBytes, change_total)
-	changeTotalHex := hex.EncodeToString(amountBytes)
-	binary.LittleEndian.PutUint64(amountBytes, tx_fee)
-	txFeeHex := hex.EncodeToString(amountBytes)
+	var unsignedTransactionBytes []byte
+	unsignedTransactionBytes = append(unsignedTransactionBytes, txentry.Hdr.Bytes()...)
+	unsignedTransactionBytes = append(unsignedTransactionBytes, txentry.Dat.Bytes()...)
 
-	unsignedTransaction += sendTotalHex + changeTotalHex + txFeeHex
+	unsignedTransaction := hex.EncodeToString(unsignedTransactionBytes)
 
 	var payloads []SigningPayload
 
@@ -466,11 +451,7 @@ func constructionCombineHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate the unsigned transaction
-	if len(req.UnsignedTransaction) != 2208*3*2+8*3*2 {
-		fmt.Print("Invalid unsigned transaction")
-		giveError(w, ErrInvalidRequest)
-		return
-	}
+	// TODO LATER
 
 	// Validate the number of signatures
 	if len(req.Signatures) != 1 {
@@ -481,7 +462,7 @@ func constructionCombineHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Validate the signature
 	if req.Signatures[0].SigningPayload.HexBytes != req.UnsignedTransaction {
-		fmt.Print("Invalid signature")
+		fmt.Print("Invalid signing payload")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
@@ -496,6 +477,20 @@ func constructionCombineHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Construct the signed transaction
 	signedTransaction := req.UnsignedTransaction + req.Signatures[0].HexBytes
+	signedTransactionBytes, _ := hex.DecodeString(signedTransaction)
+	// Append 8 + 32 bytes
+	signedTransactionBytes = append(signedTransactionBytes, make([]byte, 8+32)...)
+
+	// Get txentry
+	txentry := go_mcminterface.TransactionFromBytes(signedTransactionBytes)
+
+	// Set the nonce to current block
+	txentry.SetNonce(Globals.LatestBlockNum)
+
+	// Set the hash
+	copy(txentry.Tlr.ID[:], txentry.Hash())
+
+	signedTransaction = hex.EncodeToString(txentry.Bytes())
 
 	// Construct the response
 	response := ConstructionCombineResponse{
@@ -531,94 +526,53 @@ func constructionParseHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate the transaction
-	if len(req.Transaction) < 2208*3+16*3 {
-		giveError(w, ErrInvalidRequest)
-		return
-	}
+	// Validate the transaction - TODO LATER
 
 	// Parse the transaction to extract operations
-	var operations []Operation
+	txentry := go_mcminterface.TransactionFromHex(req.Transaction)
 
-	source_address_hex := req.Transaction[0 : 2208*2]
-	destination_address_hex := req.Transaction[2208*2 : 2208*2*2]
-	change_address_hex := req.Transaction[2208*2*2 : 2208*3*2]
-	send_total_hex := req.Transaction[2208*3*2 : 2208*3*2+8*2]
-	change_total_hex := req.Transaction[2208*3*2+8*2 : 2208*3*2+8*2*2]
-	tx_fee_hex := req.Transaction[2208*3*2+8*2*2 : 2208*3*2+8*2*3]
+	// for every destination add an operation
+	operations := []Operation{}
+	for _, dst := range txentry.GetDestinations() {
+		sent_amount := binary.LittleEndian.Uint64(dst.Amount[:])
+		operations = append(operations, Operation{
+			Type: "DESTINATION_TRANSFER",
+			Account: AccountIdentifier{
+				Address: "0x" + hex.EncodeToString(dst.Tag[:]),
+			},
+			Amount: Amount{
+				Value:    strconv.FormatUint(sent_amount, 10),
+				Currency: MCMCurrency,
+			},
+			Metadata: map[string]interface{}{
+				"memo": dst.GetReference(),
+			},
+		})
+	}
 
-	// Parse amounts in little-endian
-	sendTotalBytes, _ := hex.DecodeString(send_total_hex)
-	changeTotalBytes, _ := hex.DecodeString(change_total_hex)
-	txFeeBytes, _ := hex.DecodeString(tx_fee_hex)
-
-	send_total := binary.LittleEndian.Uint64(sendTotalBytes)
-	change_total := binary.LittleEndian.Uint64(changeTotalBytes)
-	tx_fee := binary.LittleEndian.Uint64(txFeeBytes)
-
-	source_address := getAccountFromAddress(go_mcminterface.WotsAddressFromHex(source_address_hex))
+	// Add the source operation
+	source_address := getAccountFromAddress(txentry.GetSourceAddress())
 	operations = append(operations, Operation{
-		OperationIdentifier: OperationIdentifier{
-			Index: 0,
-		},
-		Type:    "TRANSFER",
+		Type:    "SOURCE_TRANSFER",
 		Account: source_address,
 		Amount: Amount{
-			Value:    strconv.FormatInt(-int64(send_total+change_total+tx_fee), 10),
-			Currency: MCMCurrency,
-		},
-	})
-
-	destination_address := getAccountFromAddress(go_mcminterface.WotsAddressFromHex(destination_address_hex))
-	operations = append(operations, Operation{
-		OperationIdentifier: OperationIdentifier{
-			Index: 1,
-		},
-		Type:    "TRANSFER",
-		Account: destination_address,
-		Amount: Amount{
-			Value:    strconv.FormatUint(send_total, 10),
-			Currency: MCMCurrency,
-		},
-	})
-
-	change_address := getAccountFromAddress(go_mcminterface.WotsAddressFromHex(change_address_hex))
-	operations = append(operations, Operation{
-		OperationIdentifier: OperationIdentifier{
-			Index: 2,
-		},
-		Type:    "TRANSFER",
-		Account: change_address,
-		Amount: Amount{
-			Value:    strconv.FormatUint(change_total, 10),
-			Currency: MCMCurrency,
-		},
-	})
-
-	operations = append(operations, Operation{
-		OperationIdentifier: OperationIdentifier{
-			Index: 3,
-		},
-		Type: "FEE",
-		Account: AccountIdentifier{
-			Address: "",
-		},
-		Amount: Amount{
-			Value:    strconv.FormatUint(tx_fee, 10),
+			Value:    "-" + strconv.FormatUint(txentry.GetSendTotal(), 10),
 			Currency: MCMCurrency,
 		},
 	})
 
 	signers := []AccountIdentifier{source_address}
 
-	// Construct the response
+	metadata := map[string]interface{}{
+		"block_to_live": fmt.Sprintf("0x%x", txentry.GetBlockToLive()),
+	}
+
 	response := ConstructionParseResponse{
 		Operations:               operations,
 		AccountIdentifierSigners: signers,
-		Metadata:                 map[string]interface{}{}, // Add any additional metadata if necessary
+		Metadata:                 metadata,
 	}
 
-	// Encode the response as JSON
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
@@ -645,14 +599,10 @@ func constructionHashHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate the signed transaction
-	if len(req.SignedTransaction) < 2208*3+16*3+2144*2 {
-		giveError(w, ErrInvalidRequest)
-		return
-	}
+	// Validate the signed transaction - TO DO LATER
 
 	// Convert hex to bytes
-	transaction_bytes, _ := hex.DecodeString(req.SignedTransaction[2208*3+16*3 : 2208*3+16*3+2144*2])
+	transaction_bytes, _ := hex.DecodeString(req.SignedTransaction[:len(req.SignedTransaction)-32*2])
 
 	hash := sha256.Sum256(transaction_bytes)
 
@@ -664,7 +614,6 @@ func constructionHashHandler(w http.ResponseWriter, r *http.Request) {
 		Metadata: map[string]interface{}{}, // Add any additional metadata if necessary
 	}
 
-	// Encode the response as JSON
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
@@ -692,11 +641,7 @@ func constructionSubmitHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate the signed transaction
-	if len(req.SignedTransaction) < 2208*3*2+8*3*2+2144*2 {
-		giveError(w, ErrInvalidRequest)
-		return
-	}
+	// Validate the signed transaction - TODO LATER
 
 	// Submit the transaction to the Mochimo blockchain
 	transaction := go_mcminterface.TransactionFromHex(req.SignedTransaction)
@@ -704,7 +649,7 @@ func constructionSubmitHandler(w http.ResponseWriter, r *http.Request) {
 	// print the transaction
 	fmt.Printf("Transaction: %v\n", req.SignedTransaction)
 
-	// Check if the transaction is valid - TO DO LATER
+	// Check if the transaction is valid - TODO LATER
 
 	// Send
 	err := go_mcminterface.SubmitTransaction(transaction)
@@ -716,7 +661,7 @@ func constructionSubmitHandler(w http.ResponseWriter, r *http.Request) {
 	// Construct the response
 	response := ConstructionSubmitResponse{
 		TransactionIdentifier: TransactionIdentifier{
-			Hash: hex.EncodeToString(transaction.GetHash()),
+			Hash: hex.EncodeToString(transaction.Hash()),
 		},
 		Metadata: map[string]interface{}{}, // Add any additional metadata if necessary
 	}
