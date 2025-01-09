@@ -10,7 +10,7 @@ import (
 	"github.com/NickP005/go_mcminterface"
 )
 
-const REFRESH_SYNC_INTERVAL = 30
+const REFRESH_SYNC_INTERVAL = 10
 const SUGGESTED_FEE_PERC float32 = 0.25 // the percentile of the minimum fee
 const TFILE_PATH = "mochimo/bin/d/tfile.dat"
 
@@ -35,7 +35,7 @@ func Init() {
 			if err != nil {
 				log.Default().Println("RefreshSync() failed:", err)
 			} else {
-				log.Default().Println("RefreshSync() successful")
+				//log.Default().Println("RefreshSync() successful")
 			}
 		}
 	}()
@@ -54,7 +54,7 @@ func Sync() bool {
 	// Set the hash of the genesis block
 	first_trailer, err := getBTrailer(0)
 	if err != nil {
-		log.Default().Println("Sync() failed: Error fetching genesis block trailer -> ", err)
+		//log.Default().Println("Sync() failed: Error fetching genesis block trailer -> ", err)
 		return false
 	}
 	Globals.GenesisBlockHash = first_trailer.Bhash
