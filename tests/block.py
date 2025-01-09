@@ -5,7 +5,7 @@ import time
 def get_block(block_index=None, block_hash=None):
     bnum = int(input("Enter block number: "))
     # Define the API endpoint
-    url = "http://192.168.1.80:8080/block"
+    url = "http://0.0.0.0:8081/block"
     
     # Construct the request payload
     payload = {

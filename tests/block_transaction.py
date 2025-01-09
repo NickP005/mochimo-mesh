@@ -4,7 +4,7 @@ import time
 
 def get_block(block_index=None, block_hash=None):
     # Define the API endpoint
-    url = "http://192.168.1.80:8080/block/transaction"
+    url = "http://0.0.0.0:8080/block/transaction"
     
     # Construct the request payload
     payload = {
