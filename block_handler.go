@@ -18,7 +18,6 @@ func blockHandler(w http.ResponseWriter, r *http.Request) {
 		giveError(w, ErrWrongNetwork)
 		return
 	}
-
 	block, err := getBlock(req.BlockIdentifier)
 	if err != nil {
 		fmt.Println("error in getBlock", err)
@@ -90,6 +89,8 @@ func getTransactionsFromBlockBody(txentries []go_mcminterface.TXENTRY, maddr go_
 		for i, op := range tx.GetDestinations() {
 			var sent_amount uint64 = binary.LittleEndian.Uint64(op.Amount[:])
 			total_sent_amount += sent_amount
+			var address go_mcminterface.WotsAddress
+			address.SetTAG(op.Tag[:])
 
 			operations = append(operations, Operation{
 				OperationIdentifier: OperationIdentifier{
@@ -97,7 +98,7 @@ func getTransactionsFromBlockBody(txentries []go_mcminterface.TXENTRY, maddr go_
 				},
 				Type:    "DESTINATION_TRANSFER",
 				Status:  status,
-				Account: getAccountFromAddress(go_mcminterface.WotsAddressFromBytes(op.Tag[:])),
+				Account: getAccountFromAddress(address),
 				Amount: Amount{
 					Value:    fmt.Sprintf("%d", sent_amount),
 					Currency: MCMCurrency,
@@ -108,6 +109,11 @@ func getTransactionsFromBlockBody(txentries []go_mcminterface.TXENTRY, maddr go_
 			})
 		}
 
+		source_address := tx.GetSourceAddress().Address
+		source_addrhash := hex.EncodeToString(source_address[20:])
+
+		change_address := tx.GetChangeAddress().Address
+		change_addrhash := hex.EncodeToString(change_address[20:])
 		// Remove from source
 		operations = append(operations, Operation{
 			OperationIdentifier: OperationIdentifier{
@@ -119,6 +125,10 @@ func getTransactionsFromBlockBody(txentries []go_mcminterface.TXENTRY, maddr go_
 			Amount: Amount{
 				Value:    fmt.Sprintf("-%d", total_sent_amount),
 				Currency: MCMCurrency,
+			},
+			Metadata: map[string]interface{}{
+				"from_address_hash":   "0x" + source_addrhash,
+				"change_address_hash": "0x" + change_addrhash,
 			},
 		})
 
@@ -142,7 +152,7 @@ func getTransactionsFromBlockBody(txentries []go_mcminterface.TXENTRY, maddr go_
 			},
 			Operations: operations,
 			Metadata: map[string]interface{}{
-				"block_to_live": fmt.Sprintf("0x%x", tx.GetBlockToLive()),
+				"block_to_live": tx.GetBlockToLive(),
 			},
 		}
 

@@ -4,7 +4,7 @@ import time
 
 def test_account_balance():
     # Define the API endpoint URL
-    url = "http://192.168.1.80:8080/account/balance"  # Replace with the actual endpoint URL and port
+    url = "http://0.0.0.0:8081/account/balance"  # Replace with the actual endpoint URL and port
 
     # Define the request payload
     payload = {
@@ -13,7 +13,7 @@ def test_account_balance():
             "network": "mainnet"
         },
         "account_identifier": {
-            "address": "0x042069420694206942069420"  # Replace with an actual account address
+            "address": "0x22581339fdaed9c4942edc58a17ef9b6f03f9a13"  # Replace with an actual account address
         },
     }
 
@@ -28,6 +28,8 @@ def test_account_balance():
 
     # Print the response
     if response.status_code == 200:
+        print("Payload JSON to", url, ":")
+        print(json.dumps(payload, indent=4))
         print("Response JSON:")
         print(json.dumps(response.json(), indent=4))
     else:

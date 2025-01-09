@@ -187,5 +187,5 @@
     "ForceQueryStartIPs": true,
     "QuerySize": 1,
     "QueryTimeout": 10,
-    "MaxQueryAttempts": 2
+    "MaxQueryAttempts": 3
 }
