@@ -42,11 +42,13 @@ type Operation struct {
 			Decimals int    `json:"decimals"`
 		} `json:"currency"`
 	} `json:"amount"`
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
 type Transaction struct {
-	TransactionIdentifier TransactionIdentifier `json:"transaction_identifier"`
-	Operations            []Operation           `json:"operations"`
+	TransactionIdentifier TransactionIdentifier  `json:"transaction_identifier"`
+	Operations            []Operation            `json:"operations"`
+	Metadata              map[string]interface{} `json:"metadata,omitempty"`
 }
 
 type Block struct {
