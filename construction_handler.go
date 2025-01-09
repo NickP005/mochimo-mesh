@@ -242,6 +242,8 @@ func constructionMetadataHandler(w http.ResponseWriter, r *http.Request) {
 
 	metadata["change_pk"] = req.Options["change_pk"]
 
+	metadata["block_to_live"] = req.Options["block_to_live"]
+
 	response := ConstructionMetadataResponse{
 		Metadata: metadata,
 		SuggestedFee: []Amount{
@@ -380,12 +382,8 @@ func constructionPayloadsHandler(w http.ResponseWriter, r *http.Request) {
 	txentry.SetChangeTotal(change_total)
 
 	// Set block to live
-	block_to_live, err := strconv.ParseUint(req.Metadata["block_to_live"].(string), 0, 64)
-	if err != nil {
-		fmt.Println("Error parsing block to live")
-		giveError(w, ErrInvalidRequest)
-		return
-	}
+	block_to_live := req.Metadata["block_to_live"].(uint64)
+
 	txentry.SetBlockToLive(block_to_live)
 
 	//var pubSeedArray [32]byte
