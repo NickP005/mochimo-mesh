@@ -247,6 +247,16 @@ func getBlock(blockIdentifier BlockIdentifier) (Block, error) {
 		}
 	}
 
+	metadata := map[string]interface{}{
+		"block_size": len(blockData.GetBytes()),
+		"difficulty": binary.LittleEndian.Uint32(blockData.Trailer.Difficulty[:]),
+		"nonce":      fmt.Sprintf("0x%x", blockData.Trailer.Nonce[:]),
+		"root":       fmt.Sprintf("0x%x", blockData.Trailer.Mroot[:]),
+		"fee":        binary.LittleEndian.Uint64(blockData.Trailer.Mfee[:]),
+		"tx_count":   binary.LittleEndian.Uint32(blockData.Trailer.Tcount[:]),
+		"stime":      int64(binary.LittleEndian.Uint32(blockData.Trailer.Stime[:])) * 1000, // Convert to milliseconds
+	}
+
 	// Construct the Block struct
 	block := Block{
 		BlockIdentifier: BlockIdentifier{
@@ -259,6 +269,7 @@ func getBlock(blockIdentifier BlockIdentifier) (Block, error) {
 		},
 		Timestamp:    int64(binary.LittleEndian.Uint32(blockData.Trailer.Time0[:])) * 1000, // Convert to milliseconds
 		Transactions: []Transaction{},
+		Metadata:     metadata,
 	}
 
 	// Populate transactions

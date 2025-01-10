@@ -52,10 +52,11 @@ type Transaction struct {
 }
 
 type Block struct {
-	BlockIdentifier       BlockIdentifier `json:"block_identifier"`
-	ParentBlockIdentifier BlockIdentifier `json:"parent_block_identifier"`
-	Timestamp             int64           `json:"timestamp"`
-	Transactions          []Transaction   `json:"transactions"`
+	BlockIdentifier       BlockIdentifier        `json:"block_identifier"`
+	ParentBlockIdentifier BlockIdentifier        `json:"parent_block_identifier"`
+	Timestamp             int64                  `json:"timestamp"`
+	Transactions          []Transaction          `json:"transactions"`
+	Metadata              map[string]interface{} `json:"metadata,omitempty"`
 }
 
 type BlockResponse struct {
