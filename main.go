@@ -57,6 +57,7 @@ func main() {
 	r.HandleFunc("/construction/combine", constructionCombineHandler).Methods("POST")
 	r.HandleFunc("/construction/hash", constructionHashHandler).Methods("POST")
 	r.HandleFunc("/construction/submit", constructionSubmitHandler).Methods("POST")
+	r.HandleFunc("/call", callHandler).Methods("POST")
 
 	elapsed := time.Since(start_time)
 	log.Println("Server started in", elapsed, " seconds at :8081")
