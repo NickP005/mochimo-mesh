@@ -2,6 +2,10 @@ github.com/NickP005/go_mcminterface v1.0.1 h1:ElmPqZg/n/yq2Qb9dQDoAiBqTo8cUq9lXL
 github.com/NickP005/go_mcminterface v1.0.1/go.mod h1:BmLgQUtM6vT0JllDItdipni3Iphums5uhG3O6wosgro=
 github.com/NickP005/go_mcminterface v1.0.2 h1:lX/WBs7NNkjX7Tp+dcz3tvCvIEddCx3/4NEyOCwWwiM=
 github.com/NickP005/go_mcminterface v1.0.2/go.mod h1:BmLgQUtM6vT0JllDItdipni3Iphums5uhG3O6wosgro=
+github.com/NickP005/go_mcminterface v1.0.3 h1:AkA7vAH+nzs51ultXeLmqNECooeAo9X3+gOc2opVUNI=
+github.com/NickP005/go_mcminterface v1.0.3/go.mod h1:BmLgQUtM6vT0JllDItdipni3Iphums5uhG3O6wosgro=
+github.com/NickP005/go_mcminterface v1.0.4 h1:ad/+65hSS2EletjOxhhcJ3KekG3nS01b7gX+sjSh+/w=
+github.com/NickP005/go_mcminterface v1.0.4/go.mod h1:BmLgQUtM6vT0JllDItdipni3Iphums5uhG3O6wosgro=
 github.com/gorilla/mux v1.8.1 h1:TuBL49tXwgrFYWhqrNgrUNEY92u81SPhu7sTdzQEiWY=
 github.com/gorilla/mux v1.8.1/go.mod h1:AKf9I4AEqPTmMytcMc0KkNouC66V3BtZ4qD5fmWSiMQ=
 github.com/sigurn/crc16 v0.0.0-20240131213347-83fcde1e29d1 h1:NVK+OqnavpyFmUiKfUMHrpvbCi2VFoWTrcpI7aDaJ2I=
