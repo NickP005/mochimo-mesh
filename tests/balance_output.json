@@ -1,0 +1,15 @@
+{
+    "block_identifier": {
+        "index": 651732,
+        "hash": "0x3705e9a82b0cfdb471ba9220476eec0efe8dec1bd2d68f93ad505f6346a6706f"
+    },
+    "balances": [
+        {
+            "value": "26814811965713",
+            "currency": {
+                "symbol": "MCM",
+                "decimals": 9
+            }
+        }
+    ]
+}

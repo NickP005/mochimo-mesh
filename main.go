@@ -6,11 +6,16 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/NickP005/go_mcminterface"
 	"github.com/gorilla/mux"
 )
 
 func corsMiddleware(next http.Handler) http.Handler {
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Log the request
+		mlog(5, "§bcorsMiddleware(): §fRequest from §9%s§f to §9%s§f with method §9%s", r.RemoteAddr, r.URL.Path, r.Method)
+
 		// Set headers before any other operation
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "*")
@@ -34,6 +39,8 @@ func corsMiddleware(next http.Handler) http.Handler {
 
 func main() {
 	start_time := time.Now()
+
+	go_mcminterface.LoadSettings(SETTINGS_PATH)
 
 	if !SetupFlags() {
 		return
@@ -65,6 +72,7 @@ func main() {
 
 	elapsed := time.Since(start_time)
 
-	log.Println("Server started in", elapsed, " seconds at :"+strconv.Itoa(Globals.APIPort))
+	mlog(1, "§bmain(): §2Server started in §9%s§2 at localhost§8:%d", elapsed, Globals.APIPort)
+
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(Globals.APIPort), r))
 }
