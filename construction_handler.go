@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/sha256"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -165,9 +164,9 @@ func constructionPreprocessHandler(w http.ResponseWriter, r *http.Request) {
 
 	options["block_to_live"] = req.Metadata["block_to_live"]
 
-	// Get from metadata the change address hash
-	if _, ok := req.Metadata["change_addr"]; !ok {
-		fmt.Println("Change address not found")
+	// Get from metadata the change_pk
+	if _, ok := req.Metadata["change_pk"]; !ok {
+		fmt.Println("Change pk not found")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
@@ -219,10 +218,11 @@ func constructionMetadataHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// determine the source balance. If source_addr is not in options give error
-	if _, ok := req.Options["source_addr"]; !ok {
+	if source_addr, ok := req.Options["source_addr"]; !ok || len(source_addr.(string)) != 20*2+2 {
 		giveError(w, ErrInvalidRequest)
 		return
 	}
+
 	source_balance, err := go_mcminterface.QueryBalance(req.Options["source_addr"].(string)[2:])
 	if err != nil {
 		fmt.Println("Source balance not found")
@@ -242,6 +242,11 @@ func constructionMetadataHandler(w http.ResponseWriter, r *http.Request) {
 
 	metadata["change_pk"] = req.Options["change_pk"]
 
+	if _, ok := req.Options["block_to_live"]; !ok {
+		fmt.Println("Block to live not found")
+		giveError(w, ErrInvalidRequest)
+		return
+	}
 	metadata["block_to_live"] = req.Options["block_to_live"]
 
 	response := ConstructionMetadataResponse{
@@ -325,6 +330,10 @@ func constructionPayloadsHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Read from the WOTS+ full address informations for signature
 	pk_bytes, _ := hex.DecodeString(req.PublicKeys[0].HexBytes)
+	if len(pk_bytes) != 2144 {
+		giveError(w, ErrInvalidRequest)
+		return
+	}
 	//source_addr := pk_bytes[len(pk_bytes)-32:]
 	//source_public_seed := pk_bytes[len(pk_bytes)-64 : len(pk_bytes)-32]
 	pk_hash := go_mcminterface.AddrHashGenerate(pk_bytes[:2144])
@@ -465,27 +474,27 @@ func constructionCombineHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(req.Signatures[0].HexBytes) != 2144*2 {
+	if len(req.Signatures[0].HexBytes) != 2208*2 {
 		fmt.Print("Invalid signature length")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
 
-	// TO DO CHECK THAT SIGNATURE IS VALID
+	// TO DO CHECK THAT SIGNATURE IS VALID - Will in the futuredelegate to node
 
 	// Construct the signed transaction
 	signedTransaction := req.UnsignedTransaction + req.Signatures[0].HexBytes
 	signedTransactionBytes, _ := hex.DecodeString(signedTransaction)
-	// Append 8 + 32 bytes
+
+	// Append void nonce and hash (8 bytes + 32 bytes)
 	signedTransactionBytes = append(signedTransactionBytes, make([]byte, 8+32)...)
 
-	// Get txentry
 	txentry := go_mcminterface.TransactionFromBytes(signedTransactionBytes)
 
 	// Set the nonce to current block
 	txentry.SetNonce(Globals.LatestBlockNum)
 
-	// Set the hash
+	// Compute the hash
 	copy(txentry.Tlr.ID[:], txentry.Hash())
 
 	signedTransaction = hex.EncodeToString(txentry.Bytes())
@@ -525,44 +534,33 @@ func constructionParseHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate the transaction - TODO LATER
-
-	// Parse the transaction to extract operations
-	txentry := go_mcminterface.TransactionFromHex(req.Transaction)
-
-	// for every destination add an operation
-	operations := []Operation{}
-	for _, dst := range txentry.GetDestinations() {
-		sent_amount := binary.LittleEndian.Uint64(dst.Amount[:])
-		operations = append(operations, Operation{
-			Type: "DESTINATION_TRANSFER",
-			Account: AccountIdentifier{
-				Address: "0x" + hex.EncodeToString(dst.Tag[:]),
-			},
-			Amount: Amount{
-				Value:    strconv.FormatUint(sent_amount, 10),
-				Currency: MCMCurrency,
-			},
-			Metadata: map[string]interface{}{
-				"memo": dst.GetReference(),
-			},
-		})
+	transaction_bytes, err := hex.DecodeString(req.Transaction)
+	if err != nil {
+		giveError(w, ErrInvalidRequest)
+		return
+	}
+	var tx_entries []go_mcminterface.TXENTRY = go_mcminterface.BBodyFromBytes(transaction_bytes)
+	if len(tx_entries) != 1 {
+		giveError(w, ErrInvalidRequest)
+		return
 	}
 
-	// Add the source operation
-	source_address := getAccountFromAddress(txentry.GetSourceAddress())
-	operations = append(operations, Operation{
-		Type:    "SOURCE_TRANSFER",
-		Account: source_address,
-		Amount: Amount{
-			Value:    "-" + strconv.FormatUint(txentry.GetSendTotal(), 10),
-			Currency: MCMCurrency,
-		},
-	})
+	var transactions []Transaction = getTransactionsFromBlockBody(tx_entries, go_mcminterface.WotsAddress{}, false)
 
-	signers := []AccountIdentifier{source_address}
+	// Construct the operations
+	operations := transactions[0].Operations
 
-	metadata := map[string]interface{}{
-		"block_to_live": fmt.Sprintf("0x%x", txentry.GetBlockToLive()),
+	// Construct metadata
+	metadata := make(map[string]interface{})
+	metadata["block_to_live"] = tx_entries[0].GetBlockToLive()
+
+	// Construct the signers by finding the source address
+	var signers []AccountIdentifier
+	for _, op := range operations {
+		if op.Type == "SOURCE_TRANSFER" {
+			signers = append(signers, op.Account)
+			break
+		}
 	}
 
 	response := ConstructionParseResponse{
