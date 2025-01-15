@@ -24,6 +24,8 @@ func blockHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	mlog(4, "§bblockHandler(): §7Sending block §9%d §7with hash §9%s §7to §9%s", block.BlockIdentifier.Index, block.BlockIdentifier.Hash, r.RemoteAddr)
+
 	response := BlockResponse{
 		Block: block,
 	}
@@ -196,18 +198,18 @@ func getTransactionsFromBlock(block go_mcminterface.Block) []Transaction {
 func getBlockByHexHash(hexHash string) (go_mcminterface.Block, error) {
 	blockData, err := getBlockInDataFolder(hexHash)
 	if err != nil {
-		fmt.Println("Block not found in data folder, fetching from the network", err)
+		mlog(5, "§bgetBlockByHexHash(): §7Block not found in data folder, fetching from the network. Error: §c%s", err)
 		// check in the Globals.HashToBlockNumber map the block number
 		blockNumber, ok := Globals.HashToBlockNumber[hexHash]
 		if !ok {
-			fmt.Println("Block not found in the block map")
+			mlog(5, "§bgetBlockByHexHash(): §7Block §6%s§7 not found in the block map", hexHash)
 			// print the map hash as hex : int
 			for k, v := range Globals.HashToBlockNumber {
 				fmt.Println("Hash: ", k, "Block Number: ", v)
 			}
 			return go_mcminterface.Block{}, err
 		}
-		fmt.Println("Block found in the block map", blockNumber)
+		mlog(5, "§bgetBlockByHexHash(): §fBlock found in the block map: §6%d", blockNumber)
 		blockData, err = go_mcminterface.QueryBlockFromNumber(uint64(blockNumber))
 		if err != nil {
 			return go_mcminterface.Block{}, err
@@ -229,17 +231,20 @@ func getBlock(blockIdentifier BlockIdentifier) (Block, error) {
 
 	// Query block by number or hash
 	if blockIdentifier.Index != 0 {
+		mlog(5, "§bgetBlock(): §7Fetching block §9%d", blockIdentifier.Index)
 		blockData, err = go_mcminterface.QueryBlockFromNumber(uint64(blockIdentifier.Index))
 		if err != nil {
 			return Block{}, err
 		}
-	} else if blockIdentifier.Hash != "" {
+	} else if blockIdentifier.Hash != "" && len(blockIdentifier.Hash) <= 32*2+2 {
 		// first of all check if it's archived in our data folder
+		mlog(5, "§bgetBlock(): §7Fetching block with hash §9%s", blockIdentifier.Hash)
 		blockData, err = getBlockByHexHash(blockIdentifier.Hash)
 		if err != nil {
 			return Block{}, err
 		}
 	} else {
+		mlog(5, "§bgetBlock(): §7Fetching genesis block")
 		blockData, err = go_mcminterface.QueryBlockFromNumber(0)
 		if err != nil {
 			return Block{}, err
@@ -288,29 +293,24 @@ type BlockTransactionResponse struct {
 }
 
 func blockTransactionHandler(w http.ResponseWriter, r *http.Request) {
-	// Check for the correct network identifier
-	fmt.Println("Checking identifiers")
-	if r.Method != http.MethodPost {
-		fmt.Println("Invalid request method")
-		giveError(w, ErrInvalidRequest) // Invalid request method
-		return
-	}
 	var req BlockTransactionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		fmt.Println("Error decoding request", err)
+		mlog(3, "§bblockTransactionHandler(): §4Error decoding request: §c%s", err)
 		giveError(w, ErrInvalidRequest) // Invalid request body
 		return
 	}
-	if req.NetworkIdentifier.Blockchain != "mochimo" || req.NetworkIdentifier.Network != "mainnet" {
-		fmt.Println("Invalid network identifier")
-		giveError(w, ErrWrongNetwork) // Invalid network identifier
+	// Check if the network identifier is correct
+	if req.NetworkIdentifier.Blockchain != Constants.NetworkIdentifier.Blockchain ||
+		req.NetworkIdentifier.Network != Constants.NetworkIdentifier.Network {
+		mlog(3, "§bblockTransactionHandler(): §4Wrong network identifier")
+		giveError(w, ErrWrongNetwork)
 		return
 	}
 
 	// Fetch the block using the block identifier from the request
 	block, err := getBlock(req.BlockIdentifier)
 	if err != nil {
-		fmt.Println("Error in getBlock", err)
+		mlog(3, "§bblockTransactionHandler(): §4Error fetching block: §c%s", err)
 		giveError(w, ErrBlockNotFound) // Block not found
 		return
 	}
@@ -325,7 +325,7 @@ func blockTransactionHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if foundTransaction == nil {
-		fmt.Println("Transaction not found")
+		mlog(3, "§bblockTransactionHandler(): §4Transaction §6%s§7 not found", req.TransactionIdentifier.Hash)
 		giveError(w, ErrTXNotFound) // Transaction not found error
 		return
 	}

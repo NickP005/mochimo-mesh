@@ -30,9 +30,8 @@ type MempoolResponse struct {
 // mempoolHandler handles requests to fetch all transaction identifiers in the mempool.
 func mempoolHandler(w http.ResponseWriter, r *http.Request) {
 	// Check for the correct network identifier
-	fmt.Println("Checking identifiers")
 	if _, err := checkIdentifier(r); err != nil {
-		fmt.Println("Error in checkIdentifier", err)
+		mlog(3, "§bmempoolHandler(): §4Wrong network identifier")
 		giveError(w, ErrWrongNetwork) // Wrong network identifier
 		return
 	}
@@ -40,7 +39,7 @@ func mempoolHandler(w http.ResponseWriter, r *http.Request) {
 	// Fetch transactions from the mempool
 	mempool, err := getMempool(TXCLEANFILE_PATH) // Replace with actual mempool path
 	if err != nil {
-		fmt.Println("Error reading mempool", err)
+		mlog(3, "§bmempoolHandler(): §4Error reading mempool: §c%s", err)
 		giveError(w, ErrInternalError) // Internal error
 		return
 	}
@@ -65,21 +64,15 @@ func mempoolHandler(w http.ResponseWriter, r *http.Request) {
 
 // mempoolTransactionHandler handles requests to fetch a specific transaction from the mempool.
 func mempoolTransactionHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		fmt.Println("Invalid request method")
-		giveError(w, ErrInvalidRequest) // Invalid request
-		return
-	}
-
 	var req MempoolTransactionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		fmt.Println("Error decoding request", err)
+		mlog(3, "§bmempoolTransactionHandler(): §4Error decoding request: §c%s", err)
 		giveError(w, ErrInvalidRequest) // Invalid request
 		return
 	}
 
 	if req.NetworkIdentifier.Blockchain != "mochimo" || req.NetworkIdentifier.Network != "mainnet" {
-		fmt.Println("Invalid network identifier")
+		mlog(3, "§bmempoolTransactionHandler(): §4Wrong network identifier")
 		giveError(w, ErrWrongNetwork) // Wrong network identifier
 		return
 	}
@@ -87,7 +80,7 @@ func mempoolTransactionHandler(w http.ResponseWriter, r *http.Request) {
 	// Fetch transactions from the mempool
 	mempool, err := getMempool(TXCLEANFILE_PATH) // Replace with actual mempool path
 	if err != nil {
-		fmt.Println("Error reading mempool", err)
+		mlog(3, "§bmempoolTransactionHandler(): §4Error reading mempool: §c%s", err)
 		giveError(w, ErrInternalError) // Internal error
 		return
 	}
@@ -102,7 +95,7 @@ func mempoolTransactionHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if foundTx == nil {
-		fmt.Println("Transaction not found in mempool")
+		mlog(3, "§bmempoolTransactionHandler(): §4Transaction not found")
 		giveError(w, ErrTXNotFound) // Transaction not found error
 		return
 	}

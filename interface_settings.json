@@ -186,6 +186,6 @@
     "IPExpandDepth": 3,
     "ForceQueryStartIPs": true,
     "QuerySize": 1,
-    "QueryTimeout": 10,
+    "QueryTimeout": 50,
     "MaxQueryAttempts": 3
 }

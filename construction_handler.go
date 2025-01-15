@@ -33,18 +33,21 @@ type ConstructionDeriveResponse struct {
 func constructionDeriveHandler(w http.ResponseWriter, r *http.Request) {
 	var req ConstructionDeriveRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		mlog(3, "§bconstructionDeriveHandler(): §4Error decoding request: §c%s", err)
 		giveError(w, ErrInternalError)
 		return
 	}
 
 	// Validate the network identifier
 	if req.NetworkIdentifier.Blockchain != Constants.NetworkIdentifier.Blockchain || req.NetworkIdentifier.Network != Constants.NetworkIdentifier.Network {
+		mlog(3, "§bconstructionDeriveHandler(): §4Wrong network identifier")
 		giveError(w, ErrWrongNetwork)
 		return
 	}
 
 	// Validate the curve type
 	if req.PublicKey.CurveType != "wotsp" {
+		mlog(3, "§bconstructionDeriveHandler(): §4Wrong curve type")
 		giveError(w, ErrWrongCurveType)
 		return
 	}
@@ -65,6 +68,7 @@ func constructionDeriveHandler(w http.ResponseWriter, r *http.Request) {
 
 	// read from metadata the tag
 	if _, ok := req.Metadata["tag"]; !ok {
+		mlog(3, "§bconstructionDeriveHandler(): §4Tag not found")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
@@ -101,13 +105,14 @@ type ConstructionPreprocessResponse struct {
 func constructionPreprocessHandler(w http.ResponseWriter, r *http.Request) {
 	var req ConstructionPreprocessRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		fmt.Print("Error decoding request")
+		mlog(3, "§bconstructionPreprocessHandler(): §4Error decoding request: §c%s", err)
 		giveError(w, ErrInvalidRequest)
 		return
 	}
 
 	// Validate the network identifier
 	if req.NetworkIdentifier.Blockchain != Constants.NetworkIdentifier.Blockchain || req.NetworkIdentifier.Network != Constants.NetworkIdentifier.Network {
+		mlog(3, "§bconstructionPreprocessHandler(): §4Wrong network identifier")
 		giveError(w, ErrWrongNetwork)
 		return
 	}
@@ -124,19 +129,19 @@ func constructionPreprocessHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if n, ok := operationTypes["SOURCE_TRANSFER"]; !ok || n != 1 {
-		fmt.Println("SOURCE_TRANSFER not found or more than one")
+		mlog(3, "§bconstructionPreprocessHandler(): §4SOURCE_TRANSFER not found or more than one")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
 
 	if n, ok := operationTypes["DESTINATION_TRANSFER"]; !ok || n > 255 {
-		fmt.Println("DESTINATION_TRANSFER not found or more than 255")
+		mlog(3, "§bconstructionPreprocessHandler(): §4DESTINATION_TRANSFER not found or more than 255")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
 
 	if n, ok := operationTypes["FEE"]; !ok || n != 1 {
-		fmt.Println("FEE not found or more than one")
+		mlog(3, "§bconstructionPreprocessHandler(): §4FEE not found or more than one")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
@@ -166,17 +171,20 @@ func constructionPreprocessHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Get from metadata the change_pk
 	if _, ok := req.Metadata["change_pk"]; !ok {
-		fmt.Println("Change pk not found")
+		mlog(3, "§bconstructionPreprocessHandler(): §4Change pk not found")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
 
 	if len(req.Metadata["change_pk"].(string)) == 2144*2+2 {
+		mlog(5, "§bconstructionPreprocessHandler(): §7Change pk is a full WOTS+ address")
 		wotsAddr := go_mcminterface.WotsAddressFromHex(req.Metadata["change_pk"].(string)[2:])
 		options["change_pk"] = "0x" + hex.EncodeToString(wotsAddr.Address[:20])
 	} else if len(req.Metadata["change_pk"].(string)) == 20*2+2 {
+		mlog(5, "§bconstructionPreprocessHandler(): §7Change pk is a WOTS+ hashed address")
 		options["change_pk"] = "0x" + req.Metadata["change_pk"].(string)[2:]
 	} else {
+		mlog(3, "§bconstructionPreprocessHandler(): §4Invalid change pk format")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
@@ -207,25 +215,28 @@ type ConstructionMetadataResponse struct {
 func constructionMetadataHandler(w http.ResponseWriter, r *http.Request) {
 	var req ConstructionMetadataRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		mlog(3, "§bconstructionMetadataHandler(): §4Error decoding request: §c%s", err)
 		giveError(w, ErrInvalidRequest)
 		return
 	}
 
 	// Validate the network identifier
 	if req.NetworkIdentifier.Blockchain != Constants.NetworkIdentifier.Blockchain || req.NetworkIdentifier.Network != Constants.NetworkIdentifier.Network {
+		mlog(3, "§bconstructionMetadataHandler(): §4Wrong network identifier")
 		giveError(w, ErrWrongNetwork)
 		return
 	}
 
 	// determine the source balance. If source_addr is not in options give error
 	if source_addr, ok := req.Options["source_addr"]; !ok || len(source_addr.(string)) != 20*2+2 {
+		mlog(3, "§bconstructionMetadataHandler(): §4Source address not provided or invalid")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
 
 	source_balance, err := go_mcminterface.QueryBalance(req.Options["source_addr"].(string)[2:])
 	if err != nil {
-		fmt.Println("Source balance not found")
+		mlog(3, "§bconstructionMetadataHandler(): §4Source balance not found: §c%s", err)
 		giveError(w, ErrAccountNotFound)
 		return
 	}
@@ -235,7 +246,7 @@ func constructionMetadataHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Set the change_pk from options
 	if change_pk, ok := req.Options["change_pk"]; !ok || len(change_pk.(string)) != 20*2+2 {
-		fmt.Println("Change pk not found")
+		mlog(3, "§bconstructionMetadataHandler(): §4Change pk not provided or invalid")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
@@ -243,7 +254,7 @@ func constructionMetadataHandler(w http.ResponseWriter, r *http.Request) {
 	metadata["change_pk"] = req.Options["change_pk"]
 
 	if _, ok := req.Options["block_to_live"]; !ok {
-		fmt.Println("Block to live not found")
+		mlog(3, "§bconstructionMetadataHandler(): §4Block to live not provided")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
@@ -287,13 +298,14 @@ type SigningPayload struct {
 func constructionPayloadsHandler(w http.ResponseWriter, r *http.Request) {
 	var req ConstructionPayloadsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		print("Error decoding request payloads")
+		mlog(3, "§bconstructionPayloadsHandler(): §4Error decoding request: §c%s", err)
 		giveError(w, ErrInvalidRequest)
 		return
 	}
 
 	// Validate the network identifier
 	if req.NetworkIdentifier.Blockchain != Constants.NetworkIdentifier.Blockchain || req.NetworkIdentifier.Network != Constants.NetworkIdentifier.Network {
+		mlog(3, "§bconstructionPayloadsHandler(): §4Wrong network identifier")
 		giveError(w, ErrWrongNetwork)
 		return
 	}
@@ -305,25 +317,26 @@ func constructionPayloadsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if n, ok := operationTypes["SOURCE_TRANSFER"]; !ok || n != 1 {
-		fmt.Println("SOURCE_TRANSFER not found or more than one")
+		mlog(3, "§bconstructionPayloadsHandler(): §4SOURCE_TRANSFER not found or more than one")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
 
 	if n, ok := operationTypes["DESTINATION_TRANSFER"]; !ok || n > 255 {
-		fmt.Println("DESTINATION_TRANSFER not found or more than 255")
+		mlog(3, "§bconstructionPayloadsHandler(): §4DESTINATION_TRANSFER not found or more than 255")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
 
 	if n, ok := operationTypes["FEE"]; !ok || n != 1 {
-		fmt.Println("FEE not found or more than one")
+		mlog(3, "§bconstructionPayloadsHandler(): §4FEE not found or more than one")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
 
 	// Check if there are public keys - TO MOVE TO PAYLOADS
 	if len(req.PublicKeys) != 1 {
+		mlog(3, "§bconstructionPayloadsHandler(): §4Invalid number of public keys")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
@@ -331,6 +344,7 @@ func constructionPayloadsHandler(w http.ResponseWriter, r *http.Request) {
 	// Read from the WOTS+ full address informations for signature
 	pk_bytes, _ := hex.DecodeString(req.PublicKeys[0].HexBytes)
 	if len(pk_bytes) != 2144 {
+		mlog(3, "§bconstructionPayloadsHandler(): §4Invalid public key length")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
@@ -360,7 +374,7 @@ func constructionPayloadsHandler(w http.ResponseWriter, r *http.Request) {
 			var source_address go_mcminterface.WotsAddress
 			tagBytes, err := hex.DecodeString(op.Account.Address[2:])
 			if err != nil {
-				fmt.Println("Error decoding source address")
+				mlog(3, "§bconstructionPayloadsHandler(): §4Error decoding source address: §c%s", err)
 				giveError(w, ErrInvalidRequest)
 				return
 			}
@@ -371,7 +385,7 @@ func constructionPayloadsHandler(w http.ResponseWriter, r *http.Request) {
 			var change_address go_mcminterface.WotsAddress
 			change_pk, err := hex.DecodeString(req.Metadata["change_pk"].(string)[2:])
 			if err != nil {
-				fmt.Println("Error decoding change address")
+				mlog(3, "§bconstructionPayloadsHandler(): §4Error decoding change address: §c%s", err)
 				giveError(w, ErrInvalidRequest)
 				return
 			}
@@ -380,7 +394,6 @@ func constructionPayloadsHandler(w http.ResponseWriter, r *http.Request) {
 			txentry.SetChangeAddress(change_address)
 		} else if op.Type == "FEE" {
 			amount, _ := strconv.ParseUint(op.Amount.Value, 10, 64)
-
 			txentry.SetFee(amount)
 		}
 	}
@@ -446,13 +459,14 @@ type ConstructionCombineResponse struct {
 func constructionCombineHandler(w http.ResponseWriter, r *http.Request) {
 	var req ConstructionCombineRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		fmt.Print("Error decoding request combine")
+		mlog(3, "§bconstructionCombineHandler(): §4Error decoding request: §c%s", err)
 		giveError(w, ErrInvalidRequest)
 		return
 	}
 
 	// Validate the network identifier
 	if req.NetworkIdentifier.Blockchain != Constants.NetworkIdentifier.Blockchain || req.NetworkIdentifier.Network != Constants.NetworkIdentifier.Network {
+		mlog(3, "§bconstructionCombineHandler(): §4Wrong network identifier")
 		giveError(w, ErrWrongNetwork)
 		return
 	}
@@ -462,20 +476,20 @@ func constructionCombineHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Validate the number of signatures
 	if len(req.Signatures) != 1 {
-		fmt.Print("Invalid number of signatures")
+		mlog(3, "§bconstructionCombineHandler(): §4Invalid number of signatures")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
 
 	// Validate the signature
 	if req.Signatures[0].SigningPayload.HexBytes != req.UnsignedTransaction {
-		fmt.Print("Invalid signing payload")
+		mlog(3, "§bconstructionCombineHandler(): §4Invalid signing payload")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
 
 	if len(req.Signatures[0].HexBytes) != 2208*2 {
-		fmt.Print("Invalid signature length")
+		mlog(3, "§bconstructionCombineHandler(): §4Invalid signature length")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
@@ -523,12 +537,14 @@ type ConstructionParseResponse struct {
 func constructionParseHandler(w http.ResponseWriter, r *http.Request) {
 	var req ConstructionParseRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		mlog(3, "§bconstructionParseHandler(): §4Error decoding request: §c%s", err)
 		giveError(w, ErrInvalidRequest)
 		return
 	}
 
 	// Validate the network identifier
 	if req.NetworkIdentifier.Blockchain != Constants.NetworkIdentifier.Blockchain || req.NetworkIdentifier.Network != Constants.NetworkIdentifier.Network {
+		mlog(3, "§bconstructionParseHandler(): §4Wrong network identifier")
 		giveError(w, ErrWrongNetwork)
 		return
 	}
@@ -536,11 +552,13 @@ func constructionParseHandler(w http.ResponseWriter, r *http.Request) {
 	// Validate the transaction - TODO LATER
 	transaction_bytes, err := hex.DecodeString(req.Transaction)
 	if err != nil {
+		mlog(3, "§bconstructionParseHandler(): §4Error decoding transaction: §c%s", err)
 		giveError(w, ErrInvalidRequest)
 		return
 	}
 	var tx_entries []go_mcminterface.TXENTRY = go_mcminterface.BBodyFromBytes(transaction_bytes)
 	if len(tx_entries) != 1 {
+		mlog(3, "§bconstructionParseHandler(): §4Invalid number of transactions")
 		giveError(w, ErrInvalidRequest)
 		return
 	}
@@ -585,12 +603,14 @@ type TransactionIdentifierResponse struct {
 func constructionHashHandler(w http.ResponseWriter, r *http.Request) {
 	var req ConstructionHashRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		mlog(3, "§bconstructionHashHandler(): §4Error decoding request: §c%s", err)
 		giveError(w, ErrInvalidRequest)
 		return
 	}
 
 	// Validate the network identifier
 	if req.NetworkIdentifier.Blockchain != Constants.NetworkIdentifier.Blockchain || req.NetworkIdentifier.Network != Constants.NetworkIdentifier.Network {
+		mlog(3, "§bconstructionHashHandler(): §4Wrong network identifier")
 		giveError(w, ErrWrongNetwork)
 		return
 	}
@@ -627,12 +647,14 @@ type ConstructionSubmitResponse struct {
 func constructionSubmitHandler(w http.ResponseWriter, r *http.Request) {
 	var req ConstructionSubmitRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		mlog(3, "§bconstructionSubmitHandler(): §4Error decoding request: §c%s", err)
 		giveError(w, ErrInvalidRequest)
 		return
 	}
 
 	// Validate the network identifier
 	if req.NetworkIdentifier.Blockchain != Constants.NetworkIdentifier.Blockchain || req.NetworkIdentifier.Network != Constants.NetworkIdentifier.Network {
+		mlog(3, "§bconstructionSubmitHandler(): §4Wrong network identifier")
 		giveError(w, ErrWrongNetwork)
 		return
 	}
@@ -643,13 +665,10 @@ func constructionSubmitHandler(w http.ResponseWriter, r *http.Request) {
 	transaction := go_mcminterface.TransactionFromHex(req.SignedTransaction)
 
 	// print the transaction
-	fmt.Printf("Transaction: %v\n", req.SignedTransaction)
-
-	// Check if the transaction is valid - TODO LATER
-
-	// Send
+	mlog(5, "§bconstructionSubmitHandler(): §7Submitting transaction %s", hex.EncodeToString(transaction.Hash()))
 	err := go_mcminterface.SubmitTransaction(transaction)
 	if err != nil {
+		mlog(3, "§bconstructionSubmitHandler(): §4Error submitting transaction: §c%s", err)
 		giveError(w, ErrInternalError)
 		return
 	}
@@ -662,7 +681,6 @@ func constructionSubmitHandler(w http.ResponseWriter, r *http.Request) {
 		Metadata: map[string]interface{}{}, // Add any additional metadata if necessary
 	}
 
-	// Encode the response as JSON
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }

@@ -23,6 +23,7 @@ type AccountBalanceResponse struct {
 func accountBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	var req AccountBalanceRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		mlog(4, "§baccountBalanceHandler(): §4Error decoding request: §c%s", err)
 		giveError(w, ErrInvalidRequest)
 		return
 	}
@@ -37,6 +38,8 @@ func accountBalanceHandler(w http.ResponseWriter, r *http.Request) {
 			giveError(w, ErrInvalidAccountFormat)
 			return
 		}
+
+		mlog(5, "§baccountBalanceHandler(): §7Resolving tag %s", hex.EncodeToString(tag))
 		wotsAddr, err := go_mcminterface.QueryTagResolve(tag)
 		if err != nil {
 			giveError(w, ErrAccountNotFound)
@@ -48,12 +51,14 @@ func accountBalanceHandler(w http.ResponseWriter, r *http.Request) {
 		//wots addr is req.AccountIdentifier.Address without the 0x as string
 		wotsAddr := req.AccountIdentifier.Address[2:]
 
+		mlog(5, "§baccountBalanceHandler(): §7Querying balance for WOTS address %s", wotsAddr)
 		balance, err = go_mcminterface.QueryBalance(wotsAddr)
 		if err != nil {
 			giveError(w, ErrAccountNotFound)
 			return
 		}
 	} else {
+		mlog(4, "§baccountBalanceHandler(): §4Invalid account format")
 		giveError(w, ErrInvalidAccountFormat)
 		return
 	}

@@ -14,7 +14,7 @@ def get_block(block_index=None, block_hash=None):
             "network": "mainnet"
         },
         "block_identifier": {
-            "index": 651665,
+            "index": None,
             "hash": ""
         },
     }
