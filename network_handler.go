@@ -3,14 +3,12 @@ package main
 import (
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"net/http"
 )
 
 // /network/list
 func networkListHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("networkListHandler")
-
+	mlog(5, "§bnetworkListHandler(): §fRequest from §9%s§f to §9%s§f with method §9%s", r.RemoteAddr, r.URL.Path, r.Method)
 	response := NetworkListResponse{
 		NetworkIdentifiers: []NetworkIdentifier{
 			{
@@ -27,6 +25,7 @@ func networkListHandler(w http.ResponseWriter, r *http.Request) {
 func networkStatusHandler(w http.ResponseWriter, r *http.Request) {
 	_, err := checkIdentifier(r)
 	if err != nil {
+		mlog(3, "§bnetworkStatusHandler(): §4Wrong network identifier")
 		giveError(w, ErrWrongNetwork)
 		return
 	}
@@ -53,15 +52,16 @@ func networkStatusHandler(w http.ResponseWriter, r *http.Request) {
 func networkOptionsHandler(w http.ResponseWriter, r *http.Request) {
 	_, err := checkIdentifier(r)
 	if err != nil {
+		mlog(3, "§bnetworkOptionsHandler(): §4Wrong network identifier")
 		giveError(w, ErrWrongNetwork)
 		return
 	}
 	response := NetworkOptionsResponse{}
 
 	// Set the version details
-	response.Version.RosettaVersion = "1.4.13"
-	response.Version.NodeVersion = "2.4.3"
-	response.Version.MiddlewareVersion = "1.0.0"
+	response.Version.RosettaVersion = Constants.NetworkOptionsResponseVersion.RosettaVersion
+	response.Version.NodeVersion = Constants.NetworkOptionsResponseVersion.NodeVersion
+	response.Version.MiddlewareVersion = Constants.NetworkOptionsResponseVersion.MiddlewareVersion
 
 	// Define the operation statuses allowed by the network
 	response.Allow.OperationStatuses = []struct {

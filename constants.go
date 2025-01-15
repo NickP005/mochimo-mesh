@@ -1,9 +1,8 @@
 package main
 
 /*
-	MODIFY HERE THE CONSTANTS
-	Remember to replace the versions when the Mochimo node is updated!
-
+MODIFY HERE THE CONSTANTS
+Remember to replace the versions when the Mochimo node is updated!
 */
 var Constants = ConstantType{
 	NetworkIdentifier: struct {
@@ -20,7 +19,7 @@ var Constants = ConstantType{
 	}{
 		RosettaVersion:    "1.4.13",
 		NodeVersion:       "2.4.3",
-		MiddlewareVersion: "1.0.0",
+		MiddlewareVersion: "1.1.0",
 	},
 }
 

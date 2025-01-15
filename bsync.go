@@ -37,7 +37,7 @@ func Init() {
 }
 
 func Sync() bool {
-	mlog(5, "§bSync(): §aSyncing started")
+	mlog(1, "§bSync(): §aSyncing started")
 
 	Globals.IsSynced = false
 
