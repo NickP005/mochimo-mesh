@@ -13,13 +13,13 @@ import (
 func blockHandler(w http.ResponseWriter, r *http.Request) {
 	req, err := checkIdentifier(r)
 	if err != nil {
-		fmt.Println("error in checkIdentifier", err)
+		mlog(3, "§bblockHandler(): §4Error checking identifiers: §c%s", err)
 		giveError(w, ErrWrongNetwork)
 		return
 	}
 	block, err := getBlock(req.BlockIdentifier)
 	if err != nil {
-		fmt.Println("error in getBlock", err)
+		mlog(3, "§bblockHandler(): §4Error fetching block: §c%s", err)
 		giveError(w, ErrBlockNotFound)
 		return
 	}

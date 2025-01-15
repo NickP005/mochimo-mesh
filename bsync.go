@@ -16,19 +16,13 @@ var TFILE_PATH = "mochimo/bin/d/tfile.dat"
 var SETTINGS_PATH string = "interface_settings.json"
 
 func Init() {
-	//randomly pick nodes and print
-	nodes := go_mcminterface.PickNodes(1)
-	for _, node := range nodes {
-		//log.Default().Println("Init(): Picked node -> ", node)
-		mlog(5, "Init(): Picked node -> %s", node)
-	}
-	// call sync until it is successful, every 10 seconds
+	// Call sync until it is successful
 	for !Sync() {
-		//log.Default().Println("Init(): Sync() failed, retrying in,", REFRESH_SYNC_INTERVAL.Seconds(), "seconds")
 		mlog(3, "§bInit(): §4Sync() failed§f (Node offline?), retrying in §9%d seconds", int(REFRESH_SYNC_INTERVAL.Seconds()))
 		time.Sleep(REFRESH_SYNC_INTERVAL)
 	}
 
+	// Start in another separate thread the syncer.
 	go func() {
 		ticker := time.NewTicker(REFRESH_SYNC_INTERVAL)
 		defer ticker.Stop()
@@ -36,7 +30,7 @@ func Init() {
 		for range ticker.C {
 			err := RefreshSync()
 			if err != nil {
-				mlog(3, "§bInit(): §4RefreshSync() failed (Node offline?): §c%s", err)
+				mlog(2, "§bInit(): §4RefreshSync() failed (Node offline?): §c%s", err)
 			}
 		}
 	}()
@@ -47,20 +41,20 @@ func Sync() bool {
 
 	Globals.IsSynced = false
 
-	go_mcminterface.LoadSettings(SETTINGS_PATH)
-
 	// REMEMBER TO UNCOMMENT THIS
 	//go_mcminterface.BenchmarkNodes(5)
 
 	// Set the hash of the genesis block
+	mlog(5, "§bSync(): §7Fetching genesis block trailer")
 	first_trailer, err := getBTrailer(0)
 	if err != nil {
-		//log.Default().Println("Sync() failed: Error fetching genesis block trailer -> ", err)
+		mlog(3, "§bSync(): §4Error fetching genesis block trailer: §c%s", err)
 		return false
 	}
 	Globals.GenesisBlockHash = first_trailer.Bhash
 
 	// Load the last 800 block hashes to block number map
+	mlog(5, "§bSync(): §7Reading block map from §8%s", TFILE_PATH)
 	blockmap, err := readBlockMap(800, TFILE_PATH)
 	if err != nil {
 		mlog(3, "§bSync(): §4Error reading block map: §c%s", err)
@@ -79,42 +73,42 @@ func Sync() bool {
 	Globals.IsSynced = true
 
 	// print all the globals
-	//log.Default().Println("Sync() successful")
 	mlog(1, "§bSync(): §2Syncing successful")
-	// log.Default().Println("GenesisBlockHash: ", "0x"+hex.EncodeToString(Globals.GenesisBlockHash[:]))
 	mlog(5, "GenesisBlockHash: §60x%s", hex.EncodeToString(Globals.GenesisBlockHash[:]))
-	//log.Default().Println("LatestBlockNum: ", Globals.LatestBlockNum)
 	mlog(2, "LatestBlockNum: §e%d", Globals.LatestBlockNum)
-	//log.Default().Println("LatestBlockHash: ", "0x"+hex.EncodeToString(Globals.LatestBlockHash[:]))
 	mlog(3, "LatestBlockHash: §60x%s", hex.EncodeToString(Globals.LatestBlockHash[:]))
-	//log.Default().Println("CurrentBlockUnixMilli: ", Globals.CurrentBlockUnixMilli, "(", (time.Now().UnixMilli()-int64(Globals.CurrentBlockUnixMilli))/1000, "seconds ago)")
 	mlog(3, "CurrentBlockUnixMilli: §e%d §f(§9%d seconds§f ago)", Globals.CurrentBlockUnixMilli, (time.Now().UnixMilli()-int64(Globals.CurrentBlockUnixMilli))/1000)
 	return true
 }
 
 func RefreshSync() error {
 	// Set the latest block number
+	mlog(5, "§bRefreshSync(): §7Fetching latest block number")
 	latest_block, error := go_mcminterface.QueryLatestBlockNumber()
 	if error != nil {
-		log.Default().Println("Sync() failed: Error fetching latest block number")
+		mlog(3, "§bRefreshSync(): §4Error fetching latest block number: §c%s", error)
 		return error
 	}
 	same := latest_block == Globals.LatestBlockNum
 	if same {
+		mlog(5, "§bRefreshSync(): §7No new block number detected (still at §e%d§7)", latest_block)
 		return nil
 	}
+	mlog(4, "§bRefreshSync(): §7New block number detected: §e%d", latest_block)
 	Globals.LatestBlockNum = latest_block
 
 	// Set the hash of the latest block and the Solve Timestamp (Stime)
+	mlog(5, "§bRefreshSync(): §7Fetching latest block trailer")
 	latest_trailer, error := getBTrailer(uint32(latest_block))
 	if error != nil {
-		log.Default().Println("Sync() failed: Error fetching latest block trailer")
+		mlog(3, "§bRefreshSync(): §4Error fetching latest block trailer: §c%s", error)
 		return error
 	}
 	Globals.LatestBlockHash = latest_trailer.Bhash
 	Globals.CurrentBlockUnixMilli = uint64(binary.LittleEndian.Uint32(latest_trailer.Stime[:])) * 1000
 
 	// get the last 100 block hashes and add them to the block map
+	mlog(5, "§bRefreshSync(): §7Reading block map from §8%s", TFILE_PATH)
 	blockmap, error := readBlockMap(100, TFILE_PATH)
 	if error != nil {
 		log.Default().Println("Sync() failed: Error reading block map")

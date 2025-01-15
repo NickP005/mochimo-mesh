@@ -175,7 +175,7 @@ func convertColors(s string) string {
 
 // Logger with colors, timestamps and log levels
 func mlog(level int, format string, a ...interface{}) {
-	if level < Globals.LogLevel {
+	if level > Globals.LogLevel {
 		return
 	}
 	format = convertColors(format + "§r")
