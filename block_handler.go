@@ -11,7 +11,6 @@ import (
 )
 
 func blockHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("checking identifiers")
 	req, err := checkIdentifier(r)
 	if err != nil {
 		fmt.Println("error in checkIdentifier", err)

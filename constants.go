@@ -27,6 +27,8 @@ var Constants = ConstantType{
 // Constants for the server
 var Globals = GlobalsType{
 	OnlineMode:            false,
+	LogLevel:              5,
+	APIPort:               8080,
 	IsSynced:              false,
 	LastSyncTime:          0,
 	LatestBlockNum:        0,
@@ -50,6 +52,8 @@ type ConstantType struct {
 
 type GlobalsType struct {
 	OnlineMode            bool
+	LogLevel              int
+	APIPort               int
 	IsSynced              bool
 	LastSyncTime          uint64
 	LatestBlockNum        uint64
