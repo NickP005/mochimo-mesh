@@ -54,7 +54,7 @@ func Sync() bool {
 	Globals.GenesisBlockHash = first_trailer.Bhash
 
 	// Load the last 800 block hashes to block number map
-	mlog(5, "§bSync(): §7Reading block map from §8%s", TFILE_PATH)
+	mlog(5, "§bSync(): §7Reading latest §e800§7 blocks map from §8%s", TFILE_PATH)
 	blockmap, err := readBlockMap(800, TFILE_PATH)
 	if err != nil {
 		mlog(3, "§bSync(): §4Error reading block map: §c%s", err)
@@ -83,7 +83,7 @@ func Sync() bool {
 
 func RefreshSync() error {
 	// Set the latest block number
-	mlog(5, "§bRefreshSync(): §7Fetching latest block number")
+	//mlog(5, "§bRefreshSync(): §7Fetching latest block number")
 	latest_block, error := go_mcminterface.QueryLatestBlockNumber()
 	if error != nil {
 		mlog(3, "§bRefreshSync(): §4Error fetching latest block number: §c%s", error)
@@ -108,7 +108,7 @@ func RefreshSync() error {
 	Globals.CurrentBlockUnixMilli = uint64(binary.LittleEndian.Uint32(latest_trailer.Stime[:])) * 1000
 
 	// get the last 100 block hashes and add them to the block map
-	mlog(5, "§bRefreshSync(): §7Reading block map from §8%s", TFILE_PATH)
+	mlog(5, "§bRefreshSync(): §7Reading latest §e100§7 blocks map from §8%s", TFILE_PATH)
 	blockmap, error := readBlockMap(100, TFILE_PATH)
 	if error != nil {
 		log.Default().Println("Sync() failed: Error reading block map")
@@ -118,9 +118,9 @@ func RefreshSync() error {
 		Globals.HashToBlockNumber[k] = v
 	}
 
-	// get the last 60 minimum mining fees and set the suggested fee accordingly to SUGGESTED_FEE_PERC
-	minfees := make([]uint64, 0, 60)
-	minfee_map, error := readMinFeeMap(60, TFILE_PATH)
+	// get the last 10 minimum mining fees and set the suggested fee accordingly to SUGGESTED_FEE_PERC
+	minfees := make([]uint64, 0, 100)
+	minfee_map, error := readMinFeeMap(100, TFILE_PATH)
 	if error != nil {
 		log.Default().Println("Sync() failed: Error reading minimum fee map")
 		return error
@@ -132,7 +132,16 @@ func RefreshSync() error {
 	sort.Slice(minfees, func(i, j int) bool {
 		return minfees[i] < minfees[j]
 	})
-	Globals.SuggestedFee = minfees[int(SUGGESTED_FEE_PERC*float64(len(minfees)))]
+	position := int(SUGGESTED_FEE_PERC*float64(len(minfees)) - 1)
+	if position < 0 {
+		position = 0
+	} else if position >= len(minfees) {
+		position = len(minfees) - 1
+	}
+	if Globals.SuggestedFee != minfees[position] && minfees[position] > 500 {
+		Globals.SuggestedFee = minfees[position]
+		mlog(2, "§bRefreshSync(): §7Suggested fee set to §e%d §7being §e%d%% §7lower percentile", Globals.SuggestedFee, position+1)
+	}
 
 	return nil
 }

@@ -204,9 +204,10 @@ func getBlockByHexHash(hexHash string) (go_mcminterface.Block, error) {
 		if !ok {
 			mlog(5, "§bgetBlockByHexHash(): §7Block §6%s§7 not found in the block map", hexHash)
 			// print the map hash as hex : int
-			for k, v := range Globals.HashToBlockNumber {
-				fmt.Println("Hash: ", k, "Block Number: ", v)
-			}
+			/*
+				for k, v := range Globals.HashToBlockNumber {
+					fmt.Println("Hash: ", k, "Block Number: ", v)
+				}*/
 			return go_mcminterface.Block{}, err
 		}
 		mlog(5, "§bgetBlockByHexHash(): §fBlock found in the block map: §6%d", blockNumber)

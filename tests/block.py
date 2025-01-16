@@ -14,8 +14,8 @@ def get_block(block_index=None, block_hash=None):
             "network": "mainnet"
         },
         "block_identifier": {
-            "index": None,
-            "hash": ""
+            "index": 0,
+            "hash": "0x523304ec7c6bd57407115bfb53acc2e9382e8d6e3254786bb95527b8e90b0dc2"
         },
     }
     start = time.time()
