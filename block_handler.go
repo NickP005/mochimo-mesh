@@ -153,7 +153,7 @@ func getTransactionsFromBlockBody(txentries []go_mcminterface.TXENTRY, maddr go_
 			},
 			Operations: operations,
 			Metadata: map[string]interface{}{
-				"block_to_live": tx.GetBlockToLive(),
+				"block_to_live": fmt.Sprintf("%d", tx.GetBlockToLive()),
 			},
 		}
 

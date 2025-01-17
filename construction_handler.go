@@ -359,7 +359,8 @@ func constructionPayloadsHandler(w http.ResponseWriter, r *http.Request) {
 
 	var send_total uint64 = 0
 	var change_total uint64 = 0
-	var source_total uint64 = req.Metadata["source_balance"].(uint64)
+	//var source_total uint64 = req.Metadata["source_balance"].(uint64)
+	source_total, _ := strconv.ParseUint(req.Metadata["source_balance"].(string), 10, 64)
 
 	// For every operation
 	for _, op := range req.Operations {
@@ -404,7 +405,8 @@ func constructionPayloadsHandler(w http.ResponseWriter, r *http.Request) {
 	txentry.SetChangeTotal(change_total)
 
 	// Set block to live
-	block_to_live := req.Metadata["block_to_live"].(uint64)
+	//block_to_live := req.Metadata["block_to_live"].(uint64)
+	block_to_live, _ := strconv.ParseUint(req.Metadata["block_to_live"].(string), 10, 64)
 
 	txentry.SetBlockToLive(block_to_live)
 
@@ -570,7 +572,7 @@ func constructionParseHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Construct metadata
 	metadata := make(map[string]interface{})
-	metadata["block_to_live"] = tx_entries[0].GetBlockToLive()
+	metadata["block_to_live"] = string(tx_entries[0].GetBlockToLive())
 
 	// Construct the signers by finding the source address
 	var signers []AccountIdentifier
