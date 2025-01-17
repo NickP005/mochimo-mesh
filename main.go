@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -11,10 +10,16 @@ import (
 )
 
 func corsMiddleware(next http.Handler) http.Handler {
-
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Log the request
-		mlog(5, "§bcorsMiddleware(): §fRequest from §9%s§f to §9%s§f with method §9%s", r.RemoteAddr, r.URL.Path, r.Method)
+		var scheme string = "R"
+		if Globals.EnableHTTPS {
+			scheme = "HTTP r"
+			if r.TLS != nil {
+				scheme = "HTTPS r"
+			}
+		}
+		mlog(5, "§bcorsMiddleware(): §f%sequest from §9%s§f to §9%s§f with method §9%s", scheme, r.RemoteAddr, r.URL.Path, r.Method)
 
 		// Set headers before any other operation
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -84,7 +89,28 @@ func main() {
 	}
 	elapsed := time.Since(start_time)
 
-	mlog(1, "§bmain(): §2Server started in §9%s§2 at localhost§8:%d", elapsed, Globals.APIPort)
+	if Globals.EnableHTTPS {
+		mlog(1, "§bmain(): §2Server started in §9%s§2 at localhost§8:%d (HTTP) and :%d (HTTPS)",
+			elapsed, Globals.HTTPPort, Globals.HTTPSPort)
 
-	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(Globals.APIPort), r))
+		// Start HTTPS server in goroutine
+		go func() {
+			if err := http.ListenAndServeTLS(
+				":"+strconv.Itoa(Globals.HTTPSPort),
+				Globals.CertFile,
+				Globals.KeyFile,
+				r,
+			); err != nil {
+				mlog(1, "§bmain(): §4HTTPS server failed: %v", err)
+			}
+		}()
+	} else {
+		mlog(1, "§bmain(): §2Server started in §9%s§2 at localhost§8:%d (HTTP only)",
+			elapsed, Globals.HTTPPort)
+	}
+
+	// Start HTTP server
+	if err := http.ListenAndServe(":"+strconv.Itoa(Globals.HTTPPort), r); err != nil {
+		mlog(1, "§bmain(): §4HTTP server failed: %v", err)
+	}
 }

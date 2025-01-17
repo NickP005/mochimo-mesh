@@ -36,6 +36,19 @@ docker logs mochimo-mesh
 docker ps
 ```
 
+### Manual setup
+
+# HTTP only
+./mochimo-mesh
+
+# With HTTPS via flags
+./mochimo-mesh -cert /path/to/cert.pem -key /path/to/key.pem
+
+# With HTTPS via environment variables
+export MCM_CERT_FILE=/path/to/cert.pem
+export MCM_KEY_FILE=/path/to/key.pem
+./mochimo-mesh
+
 ## API Endpoints
 
 ### Network Endpoints

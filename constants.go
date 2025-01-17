@@ -19,7 +19,7 @@ var Constants = ConstantType{
 	}{
 		RosettaVersion:    "1.4.13",
 		NodeVersion:       "2.4.3",
-		MiddlewareVersion: "1.1.0",
+		MiddlewareVersion: "1.1.1",
 	},
 }
 
@@ -27,7 +27,9 @@ var Constants = ConstantType{
 var Globals = GlobalsType{
 	OnlineMode:            false,
 	LogLevel:              5,
-	APIPort:               8080,
+	HTTPPort:              8080,
+	HTTPSPort:             8443,
+	EnableHTTPS:           false,
 	IsSynced:              false,
 	LastSyncTime:          0,
 	LatestBlockNum:        0,
@@ -52,7 +54,11 @@ type ConstantType struct {
 type GlobalsType struct {
 	OnlineMode            bool
 	LogLevel              int
-	APIPort               int
+	CertFile              string
+	KeyFile               string
+	HTTPPort              int
+	HTTPSPort             int
+	EnableHTTPS           bool
 	IsSynced              bool
 	LastSyncTime          uint64
 	LatestBlockNum        uint64
