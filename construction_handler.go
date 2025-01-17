@@ -668,8 +668,7 @@ func constructionSubmitHandler(w http.ResponseWriter, r *http.Request) {
 	// Submit the transaction to the Mochimo blockchain
 	transaction := go_mcminterface.TransactionFromHex(req.SignedTransaction)
 
-	// print the transaction
-	mlog(5, "§bconstructionSubmitHandler(): §7Submitting transaction %s", hex.EncodeToString(transaction.Hash()))
+	mlog(5, "§bconstructionSubmitHandler(): §7Submitting transaction with hash §60x%s", hex.EncodeToString(transaction.Hash()))
 	err := go_mcminterface.SubmitTransaction(transaction)
 	if err != nil {
 		mlog(3, "§bconstructionSubmitHandler(): §4Error submitting transaction: §c%s", err)
