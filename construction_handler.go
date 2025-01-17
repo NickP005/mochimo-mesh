@@ -242,7 +242,7 @@ func constructionMetadataHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	metadata := make(map[string]interface{})
-	metadata["source_balance"] = source_balance
+	metadata["source_balance"] = fmt.Sprintf("%d", source_balance)
 
 	// Set the change_pk from options
 	if change_pk, ok := req.Options["change_pk"]; !ok || len(change_pk.(string)) != 20*2+2 {
