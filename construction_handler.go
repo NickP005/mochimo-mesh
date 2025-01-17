@@ -234,12 +234,14 @@ func constructionMetadataHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	source_balance, err := go_mcminterface.QueryBalance(req.Options["source_addr"].(string)[2:])
+	//source_balance, err := go_mcminterface.QueryBalance(req.Options["source_addr"].(string)[2:])
+	source_wots, err := go_mcminterface.QueryTagResolveHex(req.Options["source_addr"].(string)[2:])
 	if err != nil {
 		mlog(3, "§bconstructionMetadataHandler(): §4Source balance not found: §c%s", err)
 		giveError(w, ErrAccountNotFound)
 		return
 	}
+	source_balance := source_wots.GetAmount()
 
 	metadata := make(map[string]interface{})
 	metadata["source_balance"] = fmt.Sprintf("%d", source_balance)
