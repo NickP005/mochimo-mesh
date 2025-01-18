@@ -1,170 +1,152 @@
-# Mochimo Mesh API
+# Mochimo Mesh API v1.1.1
 
-A Rosetta API implementation for the Mochimo blockchain.
+![Version](https://img.shields.io/badge/Version-1.1.1-blue)
+![Mochimo](https://img.shields.io/badge/Mochimo-v3pre2p1-green)
+![Rosetta](https://img.shields.io/badge/Rosetta-v1.4.13-orange)
 
-## Building and Running
+A Rosetta API implementation for the Mochimo blockchain. This middleware provides standardized blockchain interaction via the Rosetta protocol.
 
-### Using Docker
+## System Requirements
 
-1. Build:
+- Mochimo Node v3pre2p1
+- Go 1.22.5 or higher
+- Ubuntu 22.04 (recommended) or compatible Linux distribution
+
+## Configuration
+
+### Command Line Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `-settings` | string | "interface_settings.json" | Path to interface settings file |
+| `-tfile` | string | "mochimo/bin/d/tfile.dat" | Path to node's tfile.dat file |
+| `-fp` | float | 0.4 | Lower percentile of fees from recent blocks |
+| `-refresh_interval` | duration | 5s | Sync refresh interval in seconds |
+| `-ll` | int | 5 | Log level (1-5, most to least verbose) |
+| `-solo` | string | "" | Single node IP bypass (e.g., "0.0.0.0") |
+| `-p` | int | 8080 | HTTP port |
+| `-ptls` | int | 8443 | HTTPS port |
+| `-online` | bool | true | Run in online mode |
+| `-cert` | string | "" | Path to SSL certificate file |
+| `-key` | string | "" | Path to SSL private key file |
+
+### Environment Variables
+- `MCM_CERT_FILE`: Path to SSL certificate
+- `MCM_KEY_FILE`: Path to SSL private key
+
+## HTTPS Configuration
+
+Enable HTTPS using either method:
+
+1. Command line flags:
+```
+-cert string      Path to SSL certificate file
+-key string       Path to SSL private key file
+```
+
+2. Environment variables:
+- `MCM_CERT_FILE`: Path to SSL certificate
+- `MCM_KEY_FILE`: Path to SSL private key
+
+## Quick Start with Docker
+
 ```bash
 docker build -t mochimo-mesh .
+docker run -d \
+  -p 8080:8080 \
+  -p 8443:8443 \
+  -v mochimo_data:/data/mochimo \
+  -v mesh_data:/data/mesh \
+  --name mochimo-mesh \
+  mochimo-mesh
 ```
 
-2. Run:
+## Manual Setup
+1. Clone and build:
 ```bash
-docker run -p 8080:8080 -p 2095:2095 --name mochimo-mesh mochimo-mesh
+git clone -b 3.0 https://github.com/NickP005/mochimo-mesh.git
+cd mochimo-mesh
+go build -o mesh .
 ```
-
-3. Stop:
-```bash 
-docker stop mochimo-mesh
-```
-
-4. Remove container (after stopping):
+2. Ensure Mochimo node is running and synced under the mochimo/bin/ subfolder:
 ```bash
-docker rm mochimo-mesh
+git clone -b v3rc2 https://github.com/mochimodev/mochimo mochimo/
+cd mochimo/
+make mochimo
+cd ..
 ```
-
-5. View logs:
+3. Run:
 ```bash
-docker logs mochimo-mesh
+./mesh -solo 0.0.0.0         # Connect to local node
+./mesh -p 8081               # Custom port
+./mesh -cert cert.pem -key key.pem  # Enable HTTPS
 ```
-
-6. View running containers:
-```bash
-docker ps
-```
-
-### Manual setup
-
-# HTTP only
-./mochimo-mesh
-
-# With HTTPS via flags
-./mochimo-mesh -cert /path/to/cert.pem -key /path/to/key.pem
-
-# With HTTPS via environment variables
-export MCM_CERT_FILE=/path/to/cert.pem
-export MCM_KEY_FILE=/path/to/key.pem
-./mochimo-mesh
 
 ## API Endpoints
 
-### Network Endpoints
+All endpoints accept POST requests with JSON payloads.
 
-#### 1. List Networks
-Lists supported networks (currently only Mochimo mainnet).
-```bash
-curl -X POST http://localhost:8080/network/list
-```
+### Network
+- `/network/list` - List supported networks
+- `/network/status` - Get chain status
+- `/network/options` - Get network options
 
-#### 2. Network Status
-Returns current blockchain status including latest block.
-```bash
-curl -X POST http://localhost:8080/network/status \
-  -d '{"network_identifier":{"blockchain":"mochimo","network":"mainnet"}}'
-```
+### Account
+- `/account/balance` - Get address balance
+  - Supports both tag (12 bytes) and WOTS (2208 bytes) addresses
+  - Address format: "0x" + hex string
 
-### Block Endpoints
+### Block
+- `/block` - Get block by number or hash
+- `/block/transaction` - Get transaction details
 
-#### 1. Get Block
-Retrieves block data by index or hash.
-```bash
-curl -X POST http://localhost:8080/block \
-  -d '{
-    "network_identifier": {"blockchain":"mochimo","network":"mainnet"},
-    "block_identifier": {"index":123456}
-  }'
-```
+### Mempool
+- `/mempool` - List pending transactions
+- `/mempool/transaction` - Get pending transaction
 
-#### 2. Get Block Transaction
-Retrieves specific transaction from a block.
-```bash
-curl -X POST http://localhost:8080/block/transaction \
-  -d '{
-    "network_identifier": {"blockchain":"mochimo","network":"mainnet"},
-    "block_identifier": {"index":123456},
-    "transaction_identifier": {"hash":"0x..."}
-  }'
-```
+### Construction
+- `/construction/derive` - Derive address from public key
+- `/construction/preprocess` - Prepare transaction
+- `/construction/metadata` - Get transaction metadata
+- `/construction/payloads` - Create unsigned transaction
+- `/construction/combine` - Add signatures
+- `/construction/submit` - Submit transaction
 
-### Account Endpoints
+### Custom Methods
+- `/call`
+  - `tag_resolve`: Resolve tag to WOTS address
 
-#### Get Balance
-Retrieves account balance and block information.
-```bash
-curl -X POST http://localhost:8080/account/balance \
-  -d '{
-    "network_identifier": {"blockchain":"mochimo","network":"mainnet"},
-    "account_identifier": {"address":"0x..."}
-  }'
-```
+## Address Types
 
-### Construction Endpoints
-
-Used for creating and submitting transactions. All endpoints require network_identifier.
-
-1. `/construction/derive` - Derives address from public key
-2. `/construction/preprocess` - Prepares transaction construction
-3. `/construction/metadata` - Gets transaction metadata
-4. `/construction/payloads` - Creates unsigned transaction
-5. `/construction/combine` - Combines signatures with transaction
-6. `/construction/submit` - Submits signed transaction
-
-## Transaction Types
-
-Mochimo supports several transaction patterns:
-
-1. Tagged to Tagged Address:
-   - Source uses tag identifier
-   - Destination uses different tag
-   - Change returns to source tag
-
-2. Tagged to WOTS:
-   - Source uses tag
-   - Destination uses full WOTS address  
-   - Change returns to source tag
-
-3. WOTS to Tagged:
-   - Source uses full WOTS
-   - Destination uses tag
-   - Change goes to new WOTS
-
-4. WOTS to WOTS:
-   - All addresses use full WOTS format
-   - Requires new change address
+- **Tag Address**: 12 bytes (hex encoded with "0x" prefix)
+- **WOTS Address**: 2208 bytes (hex encoded with "0x" prefix)
 
 ## Technical Details
 
-- WOTS addresses: 2208 bytes
-- Tagged addresses: 12 bytes 
-- Currency: MCM (9 decimals)
-- Amount format: nanoMCM (1 MCM = 10^9 nanoMCM)
-- Signature scheme: WOTS+ (Winternitz One-Time Signature Plus)
+- Currency Symbol: MCM
+- Decimals: 9 (1 MCM = 10^9 nanoMCM)
+- Block Sync: Requires mochimo/bin/d/tfile.dat access
+- Node Communication: Local node on specified IP/port
 
-## Error Handling
+## Error Codes
 
-The API returns standardized errors with the following structure:
-```json
-{
-  "code": 1,
-  "message": "Invalid request",
-  "retriable": false
-}
-```
+| Code | Message | Retriable |
+|------|---------|-----------|
+| 1 | Invalid request | false |
+| 2 | Internal error | true |
+| 3 | TX not found | true |
+| 4 | Account not found | true |
+| 5 | Wrong network | false |
+| 6 | Block not found | true |
+| 7 | Wrong curve type | false |
+| 8 | Invalid address | false |
 
-### Error Codes
+## Support & Community
 
-| Code | Message | Retriable | Description |
-|------|---------|-----------|-------------|
-| 1 | Invalid request | false | Malformed or invalid request |
-| 2 | Internal general error | true | Server-side error |
-| 3 | Transaction not found | true | TX doesn't exist |
-| 4 | Account not found | true | Account doesn't exist |
-| 5 | Wrong network identifier | false | Invalid network specified |
-| 6 | Block not found | true | Block doesn't exist |
-| 7 | Wrong curve type | false | Must use "wotsp" |
-| 8 | Invalid account format | false | Malformed address |
+Join our communities for support and discussions:
 
-Retriable errors may succeed on retry. Non-retriable errors require request modification.
+[![NickP005 Development Server](https://img.shields.io/discord/1234567890?color=7289da&label=Mesh%20Support&logo=discord&logoColor=white)](https://discord.gg/Q5jM8HJhNT)  
+[![Mochimo Official](https://img.shields.io/discord/1234567890?color=7289da&label=Mochimo&logo=discord&logoColor=white)](https://discord.gg/SvdXdr2j3Y)
+
+- **Mochimo Mesh Development Server**: Technical support and development discussions
+- **Mochimo Official**: General Mochimo blockchain discussions and community
