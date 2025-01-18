@@ -122,7 +122,6 @@ All endpoints accept POST requests with JSON payloads.
 
 ### Account
 - `/account/balance` - Get address balance
-  - Supports both tag (12 bytes) and WOTS (2208 bytes) addresses
   - Address format: "0x" + hex string
 
 ### Block
@@ -143,7 +142,7 @@ All endpoints accept POST requests with JSON payloads.
 
 ### Custom Methods
 - `/call`
-  - `tag_resolve`: Resolve tag to WOTS address
+  - `tag_resolve`: Resolve tag to address
 
 ## Address Types
 
