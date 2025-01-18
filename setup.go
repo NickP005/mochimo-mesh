@@ -25,7 +25,7 @@ func SetupFlags() bool {
 	flag.StringVar(&TFILE_PATH, "tfile", "mochimo/bin/d/tfile.dat", "Path to node's tfile.dat file")
 	flag.Float64Var(&SUGGESTED_FEE_PERC, "fp", 0.4, "The lower percentile of fees set in recent blocks")
 	flag.DurationVar(&REFRESH_SYNC_INTERVAL, "refresh_interval", 5*time.Second, "The interval in seconds to refresh the sync")
-	flag.IntVar(&Globals.LogLevel, "ll", 5, "Log level (1-5). Most to least verbose")
+	flag.IntVar(&Globals.LogLevel, "ll", 5, "Log level (1-5). Least to most verbose")
 	flag.StringVar(&solo_node, "solo", "", "Bypass settings and use a single node ip (e.g. 0.0.0.0")
 	flag.IntVar(&Globals.HTTPPort, "p", 8080, "Port to listen to")
 	flag.IntVar(&Globals.HTTPSPort, "ptls", 8443, "Port to listen to for TLS")
