@@ -22,7 +22,7 @@ A Rosetta API implementation for the Mochimo blockchain. This middleware provide
 | `-tfile` | string | "mochimo/bin/d/tfile.dat" | Path to node's tfile.dat file |
 | `-fp` | float | 0.4 | Lower percentile of fees from recent blocks |
 | `-refresh_interval` | duration | 5s | Sync refresh interval in seconds |
-| `-ll` | int | 5 | Log level (1-5, most to least verbose) |
+| `-ll` | int | 5 | Log level (1-5, Least to most verbose) |
 | `-solo` | string | "" | Single node IP bypass (e.g., "0.0.0.0") |
 | `-p` | int | 8080 | HTTP port |
 | `-ptls` | int | 8443 | HTTPS port |
@@ -47,6 +47,35 @@ Enable HTTPS using either method:
 2. Environment variables:
 - `MCM_CERT_FILE`: Path to SSL certificate
 - `MCM_KEY_FILE`: Path to SSL private key
+
+3. Using Certbot:
+Certbot can be used to automatically obtain and renew SSL certificates from Let's Encrypt. Follow these steps to set up Certbot:
+
+- Install Certbot:
+```bash
+sudo apt-get update
+sudo apt-get install certbot
+```
+
+- Obtain a certificate:
+```bash
+sudo certbot certonly --standalone -d yourdomain.com
+```
+
+- Configure the paths to the obtained certificate and key in your environment variables or command line flags:
+```bash
+export MCM_CERT_FILE=/etc/letsencrypt/live/yourdomain.com/fullchain.pem
+export MCM_KEY_FILE=/etc/letsencrypt/live/yourdomain.com/privkey.pem
+```
+
+- Set up a cron job to renew the certificate automatically:
+```bash
+sudo crontab -e
+```
+Add the following line to the crontab file to renew the certificate every day at noon:
+```bash
+0 12 * * * /usr/bin/certbot renew --quiet
+```
 
 ## Quick Start with Docker
 
@@ -101,8 +130,8 @@ All endpoints accept POST requests with JSON payloads.
 - `/block/transaction` - Get transaction details
 
 ### Mempool
-- `/mempool` - List pending transactions
-- `/mempool/transaction` - Get pending transaction
+- `/mempool` - List pending transactions' id
+- `/mempool/transaction` - Get pending transactison
 
 ### Construction
 - `/construction/derive` - Derive address from public key
@@ -118,14 +147,15 @@ All endpoints accept POST requests with JSON payloads.
 
 ## Address Types
 
-- **Tag Address**: 12 bytes (hex encoded with "0x" prefix)
-- **WOTS Address**: 2208 bytes (hex encoded with "0x" prefix)
+- **Tag**: 20 bytes (hex encoded with "0x" prefix)
+- **Address**: 20 bytes (hex encoded with "0x" prefix)
+- **Tagged Address**: 40 bytes (hex encoded with "0x" prefix)
 
 ## Technical Details
 
 - Currency Symbol: MCM
 - Decimals: 9 (1 MCM = 10^9 nanoMCM)
-- Block Sync: Requires mochimo/bin/d/tfile.dat access
+- Block Sync: Requires mochimo/bin/d/tfile.dat access (if no other path is specified in the flags)
 - Node Communication: Local node on specified IP/port
 
 ## Error Codes
@@ -148,5 +178,5 @@ Join our communities for support and discussions:
 [![NickP005 Development Server](https://img.shields.io/discord/1234567890?color=7289da&label=Mesh%20Support&logo=discord&logoColor=white)](https://discord.gg/Q5jM8HJhNT)  
 [![Mochimo Official](https://img.shields.io/discord/1234567890?color=7289da&label=Mochimo&logo=discord&logoColor=white)](https://discord.gg/SvdXdr2j3Y)
 
-- **Mochimo Mesh Development Server**: Technical support and development discussions
+- **NickP005 Development Server**: Technical support and development discussions
 - **Mochimo Official**: General Mochimo blockchain discussions and community
