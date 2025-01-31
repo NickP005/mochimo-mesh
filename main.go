@@ -42,6 +42,20 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func maxRequestSizeMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 30KB = 30 * 1024 bytes
+		r.Body = http.MaxBytesReader(w, r.Body, 30*1024)
+
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "Request too large", http.StatusRequestEntityTooLarge)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	start_time := time.Now()
 
@@ -61,6 +75,7 @@ func main() {
 	r := mux.NewRouter()
 
 	r.Use(corsMiddleware)
+	r.Use(maxRequestSizeMiddleware) // Add the new middleware
 
 	r.HandleFunc("/network/options", networkOptionsHandler).Methods("POST", "OPTIONS")
 	r.HandleFunc("/network/list", networkListHandler).Methods("POST", "OPTIONS")
