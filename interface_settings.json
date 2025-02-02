@@ -16,5 +16,6 @@
     "ForceQueryStartIPs": true,
     "QuerySize": 1,
     "QueryTimeout": 50,
-    "MaxQueryAttempts": 3
+    "MaxQueryAttempts": 3,
+    "DefaultPort": 2095
 }

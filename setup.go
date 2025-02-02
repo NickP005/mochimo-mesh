@@ -29,6 +29,7 @@ func SetupFlags() bool {
 	flag.StringVar(&solo_node, "solo", "", "Bypass settings and use a single node ip (e.g. 0.0.0.0")
 	flag.IntVar(&Globals.HTTPPort, "p", 8080, "Port to listen to")
 	flag.IntVar(&Globals.HTTPSPort, "ptls", 8443, "Port to listen to for TLS")
+	flag.IntVar(&go_mcminterface.Settings.DefaultPort, "np", 2095, "Port to connect to the node")
 	flag.BoolVar(&Globals.OnlineMode, "online", true, "Run in online mode")
 	flag.StringVar(&Globals.CertFile, "cert", "", "Path to SSL certificate file")
 	flag.StringVar(&Globals.KeyFile, "key", "", "Path to SSL private key file")
