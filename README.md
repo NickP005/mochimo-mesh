@@ -1,6 +1,6 @@
-# Mochimo Mesh API v1.1.1
+# Mochimo Mesh API v1.1.2
 
-![Version](https://img.shields.io/badge/Version-1.1.1-blue)
+![Version](https://img.shields.io/badge/Version-1.1.2-blue)
 ![Mochimo](https://img.shields.io/badge/Mochimo-v3pre2p1-green)
 ![Rosetta](https://img.shields.io/badge/Rosetta-v1.4.13-orange)
 

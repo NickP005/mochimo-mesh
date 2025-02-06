@@ -52,7 +52,7 @@ Sample Response:
   "version": {
     "rosetta_version": "1.4.13",
     "node_version": "2.4.3",
-    "middleware_version": "1.1.1"
+    "middleware_version": "1.1.2"
   },
   "allow": {
     "operation_statuses": [
@@ -92,7 +92,17 @@ curl -X POST http://api-aus.mochimo.org:8080/mempool \
   }'
 ```
 
----
+### Sample Response
+```json
+{
+  "transaction_identifiers": [
+    { "hash": "0xeb01556dddbb3dd00f94d2193aeede9db99e6f68e5b262684699b1709a537b46" },
+    { "hash": "0x37bcae38ab9548b2894b04fc9ed335b9b8ed7a802098083cee2604c2c5d905b3" },
+    { "hash": "0xb76395d802a3267d5ef9d913e561de24d4843a4051d66dae449469bb431fceb7" },
+    { "hash": "0x19e367e15ed15f11b85d4f8c9e9934dbfbd8f5f4615bda702fe1678f09babe3f" }
+  ]
+}
+```
 
 ## Mempool Transaction
 Query a specific mempool transaction:
@@ -105,9 +115,58 @@ curl -X POST http://api-aus.mochimo.org:8080/mempool/transaction \
       "network": "mainnet"
     },
     "transaction_identifier": {
-      "hash": "0x35ca0222c780f9674a5be7c95a6492fd93586501134245af69e83ca348b9d429"
+      "hash": "0x5db073f8a94de54fcf82d34014befcd99363af5dce6a9b907b76feb894122d76"
     }
   }'
+```
+
+### Sample Response
+```json
+{
+  "transaction": {
+    "transaction_identifier": {
+      "hash": "0x5db073f8a94de54fcf82d34014befcd99363af5dce6a9b907b76feb894122d76"
+    },
+    "operations": [
+      {
+        "operation_identifier": { "index": 0 },
+        "type": "DESTINATION_TRANSFER",
+        "status": "PENDING",
+        "account": { "address": "0x64dfe1e04a579de8ab4f15ae533a747c7edc0c4f" },
+        "amount": {
+          "value": "198953000",
+          "currency": { "symbol": "MCM", "decimals": 9 }
+        },
+        "metadata": { "memo": "" }
+      },
+      {
+        "operation_identifier": { "index": 1 },
+        "type": "SOURCE_TRANSFER",
+        "status": "PENDING",
+        "account": { "address": "0x8413d773b644cb4200ea119cc767632ec2828615" },
+        "amount": {
+          "value": "-198953500",
+          "currency": { "symbol": "MCM", "decimals": 9 }
+        },
+        "metadata": {
+          "change_address_hash": "0x1eef5f33639cf6a3e7ee217d9bbace7d0b6d4058",
+          "from_address_hash": "0x58b4fce84ceeb4d5646bcb4d7b9441337f7185ee"
+        }
+      },
+      {
+        "operation_identifier": { "index": 2 },
+        "type": "FEE",
+        "status": "PENDING",
+        "account": { "address": "0x0000000000000000000000000000000000000000" },
+        "amount": {
+          "value": "500",
+          "currency": { "symbol": "MCM", "decimals": 9 }
+        }
+      }
+    ],
+    "metadata": { "block_to_live": "0" }
+  }
+}
 ```
 
 ---
@@ -436,5 +495,35 @@ Sample Response:
       "currency": { "symbol": "MCM", "decimals": 9 }
     }
   ]
+}
+```
+
+---
+
+## Call: Resolve Tag
+Invoke the call endpoint to resolve a tag:
+```bash
+curl -X POST http://api-aus.mochimo.org:8080/call \
+  -H "Content-Type: application/json" \
+  -d '{
+    "network_identifier": {
+      "blockchain": "mochimo",
+      "network": "mainnet"
+    },
+    "method": "tag_resolve",
+    "parameters": {
+      "tag": "0x9f810c2447a76e93b17ebff96c0b29952e4355f1"
+    }
+  }'
+```
+
+### Sample Response
+```json
+{
+  "result": {
+    "address": "0x9f810c2447a76e93b17ebff96c0b29952e4355f1d5d71e5571327d76f8e208f6cb73c0d40b13e944",
+    "amount": 799988001
+  },
+  "idempotent": true
 }
 ```
