@@ -8,7 +8,7 @@ import (
 	"github.com/NickP005/go_mcminterface"
 )
 
-const TXCLEANFILE_PATH = "mochimo/bin/d/txclean.dat"
+var TXCLEANFILE_PATH = "mochimo/bin/d/txclean.dat"
 
 // MempoolTransactionRequest is utilized to retrieve a transaction from the mempool.
 type MempoolTransactionRequest struct {

@@ -74,7 +74,7 @@ func networkOptionsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Define the operation types allowed by the network
-	response.Allow.OperationTypes = []string{"TRANSFER", "REWARD"}
+	response.Allow.OperationTypes = []string{"TRANSFER", "REWARD", "FEE"}
 
 	// Define possible errors that may occur
 	response.Allow.Errors = []struct {
