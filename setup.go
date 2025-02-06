@@ -23,6 +23,7 @@ func SetupFlags() bool {
 
 	flag.StringVar(&SETTINGS_PATH, "settings", "interface_settings.json", "Path to the settings file")
 	flag.StringVar(&TFILE_PATH, "tfile", "mochimo/bin/d/tfile.dat", "Path to node's tfile.dat file")
+	flag.StringVar(&TXCLEANFILE_PATH, "txclean", "mochimo/bin/d/txclean.dat", "Path to node's txclean.dat file")
 	flag.Float64Var(&SUGGESTED_FEE_PERC, "fp", 0.4, "The lower percentile of fees set in recent blocks")
 	flag.DurationVar(&REFRESH_SYNC_INTERVAL, "refresh_interval", 5*time.Second, "The interval in seconds to refresh the sync")
 	flag.IntVar(&Globals.LogLevel, "ll", 5, "Log level (1-5). Least to most verbose")

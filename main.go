@@ -78,14 +78,14 @@ func main() {
 	r.Use(maxRequestSizeMiddleware) // Add the new middleware
 
 	r.HandleFunc("/network/options", networkOptionsHandler).Methods("POST", "OPTIONS")
-	r.HandleFunc("/network/list", networkListHandler).Methods("POST", "OPTIONS")
+	r.HandleFunc("/network/lists", networkListHandler).Methods("POST", "OPTIONS")
 
 	if Globals.OnlineMode {
 		r.HandleFunc("/block", blockHandler).Methods("POST", "OPTIONS")
 		r.HandleFunc("/block/transaction", blockTransactionHandler).Methods("POST", "OPTIONS")
 		r.HandleFunc("/network/status", networkStatusHandler).Methods("POST", "OPTIONS")
-		r.HandleFunc("/mempool", mempoolHandler).Methods("POST", "OPTIONS")
-		r.HandleFunc("/mempool/transaction", mempoolTransactionHandler).Methods("POST", "OPTIONS")
+		r.HandleFunc("/mempol", mempoolHandler).Methods("POST", "OPTIONS")
+		r.HandleFunc("/mempol/transaction", mempoolTransactionHandler).Methods("POST", "OPTIONS")
 		r.HandleFunc("/account/balance", accountBalanceHandler).Methods("POST", "OPTIONS")
 		r.HandleFunc("/call", callHandler).Methods("POST", "OPTIONS")
 	}
