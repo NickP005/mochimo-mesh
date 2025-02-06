@@ -19,7 +19,7 @@ var Constants = ConstantType{
 	}{
 		RosettaVersion:    "1.4.13",
 		NodeVersion:       "2.4.3",
-		MiddlewareVersion: "1.1.1",
+		MiddlewareVersion: "1.1.2",
 	},
 }
 
