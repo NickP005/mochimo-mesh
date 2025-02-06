@@ -84,8 +84,8 @@ func main() {
 		r.HandleFunc("/block", blockHandler).Methods("POST", "OPTIONS")
 		r.HandleFunc("/block/transaction", blockTransactionHandler).Methods("POST", "OPTIONS")
 		r.HandleFunc("/network/status", networkStatusHandler).Methods("POST", "OPTIONS")
-		r.HandleFunc("/mempol", mempoolHandler).Methods("POST", "OPTIONS")
-		r.HandleFunc("/mempol/transaction", mempoolTransactionHandler).Methods("POST", "OPTIONS")
+		r.HandleFunc("/mempool", mempoolHandler).Methods("POST", "OPTIONS")
+		r.HandleFunc("/mempool/transaction", mempoolTransactionHandler).Methods("POST", "OPTIONS")
 		r.HandleFunc("/account/balance", accountBalanceHandler).Methods("POST", "OPTIONS")
 		r.HandleFunc("/call", callHandler).Methods("POST", "OPTIONS")
 	}
