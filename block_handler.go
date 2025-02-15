@@ -165,7 +165,8 @@ func getTransactionsFromBlockBody(txentries []go_mcminterface.TXENTRY, maddr go_
 // helper function to get the transactions (included imaginary) from a block
 func getTransactionsFromBlock(block go_mcminterface.Block) []Transaction {
 	transactions := []Transaction{}
-	maddr := go_mcminterface.WotsAddressFromBytes(block.Header.Maddr[:])
+	var maddr go_mcminterface.WotsAddress
+	maddr.SetTAG(block.Header.Maddr[:])
 
 	// Add miner reward operation
 	if block.Header.Mreward > 0 {
