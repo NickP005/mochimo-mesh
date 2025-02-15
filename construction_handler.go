@@ -560,14 +560,16 @@ func constructionParseHandler(w http.ResponseWriter, r *http.Request) {
 		giveError(w, ErrInvalidRequest)
 		return
 	}
-	var tx_entries []go_mcminterface.TXENTRY = go_mcminterface.BBodyFromBytes(transaction_bytes)
-	if len(tx_entries) != 1 {
-		mlog(3, "§bconstructionParseHandler(): §4Invalid number of transactions")
-		giveError(w, ErrInvalidRequest)
-		return
+
+	// if signed==false, add void signature, nonce and hash
+	if !req.Signed {
+		transaction_bytes = append(transaction_bytes, make([]byte, (2144+32+32)+8+32)...)
 	}
 
-	var transactions []Transaction = getTransactionsFromBlockBody(tx_entries, go_mcminterface.WotsAddress{}, false)
+	var tx_entry go_mcminterface.TXENTRY = go_mcminterface.TransactionFromBytes(transaction_bytes)
+
+	var tx_entries []go_mcminterface.TXENTRY = []go_mcminterface.TXENTRY{tx_entry}
+	transactions := getTransactionsFromBlockBody(tx_entries, go_mcminterface.WotsAddress{}, false)
 
 	// Construct the operations
 	operations := transactions[0].Operations
