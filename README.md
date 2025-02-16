@@ -115,7 +115,7 @@ cd ..
 
 All endpoints accept POST requests with JSON payloads.
 
-For detailed examples on how to use these endpoints, see our [Query Examples](QUERY_EXAMPLES.md) documentation.
+For detailed examples on how to use these endpoints, see our [Query Examples](.github/QUERY_EXAMPLES.md) documentation.
 
 ### Network
 - `/network/list` - List supported networks
