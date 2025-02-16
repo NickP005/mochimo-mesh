@@ -1,2 +1,7 @@
 mochimomesh.exe
 mochimomesh
+
+# historical directory bloat
+node_modules/
+mochimo/
+dist/
