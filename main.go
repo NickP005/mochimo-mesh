@@ -78,7 +78,7 @@ func main() {
 	r.Use(maxRequestSizeMiddleware) // Add the new middleware
 
 	r.HandleFunc("/network/options", networkOptionsHandler).Methods("POST", "OPTIONS")
-	r.HandleFunc("/network/lists", networkListHandler).Methods("POST", "OPTIONS")
+	r.HandleFunc("/network/list", networkListHandler).Methods("POST", "OPTIONS")
 
 	if Globals.OnlineMode {
 		r.HandleFunc("/block", blockHandler).Methods("POST", "OPTIONS")
