@@ -31,9 +31,13 @@ var Globals = GlobalsType{
 	HTTPSPort:             8443,
 	EnableHTTPS:           false,
 	IsSynced:              false,
+	LastSyncStage:         "init",
 	LastSyncTime:          0,
 	LatestBlockNum:        0,
 	LatestBlockHash:       [32]byte{},
+	OldestBlockNum:        0,
+	OldestBlockHash:       [32]byte{},
+	GenesisBlockNum:       0,
 	GenesisBlockHash:      [32]byte{},
 	CurrentBlockUnixMilli: 0,
 	SuggestedFee:          500,
@@ -61,9 +65,13 @@ type GlobalsType struct {
 	HTTPSPort             int
 	EnableHTTPS           bool
 	IsSynced              bool
+	LastSyncStage         string
 	LastSyncTime          uint64
 	LatestBlockNum        uint64
 	LatestBlockHash       [32]byte
+	OldestBlockNum        uint64
+	OldestBlockHash       [32]byte
+	GenesisBlockNum       uint64
 	GenesisBlockHash      [32]byte
 	CurrentBlockUnixMilli uint64
 	SuggestedFee          uint64

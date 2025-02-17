@@ -23,6 +23,11 @@ type BlockRequest struct {
 	BlockIdentifier   BlockIdentifier   `json:"block_identifier"`
 }
 
+type SyncStatus struct {
+	Stage  string `json:"stage"`
+	Synced bool   `json:"synced"`
+}
+
 type TransactionIdentifier struct {
 	Hash string `json:"hash"`
 }
@@ -72,8 +77,10 @@ type NetworkListResponse struct {
 
 type NetworkStatusResponse struct {
 	CurrentBlockIdentifier BlockIdentifier `json:"current_block_identifier"`
-	GenesisBlockIdentifier BlockIdentifier `json:"genesis_block_identifier"`
 	CurrentBlockTimestamp  int64           `json:"current_block_timestamp"`
+	GenesisBlockIdentifier BlockIdentifier `json:"genesis_block_identifier"`
+	OldestBlockIdentifier  BlockIdentifier `json:"oldest_block_identifier"`
+	SyncStatus             SyncStatus      `json:"sync_status"`
 	//Peers                  []string        `json:"peers"`
 }
 

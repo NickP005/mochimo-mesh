@@ -38,11 +38,19 @@ func networkStatusHandler(w http.ResponseWriter, r *http.Request) {
 			Index: int(Globals.LatestBlockNum),
 			Hash:  "0x" + hex.EncodeToString(Globals.LatestBlockHash[:]),
 		},
+		CurrentBlockTimestamp: int64(Globals.CurrentBlockUnixMilli),
 		GenesisBlockIdentifier: BlockIdentifier{
 			Index: 0,
 			Hash:  "0x" + hex.EncodeToString(Globals.GenesisBlockHash[:]),
 		},
-		CurrentBlockTimestamp: int64(Globals.CurrentBlockUnixMilli),
+		OldestBlockIdentifier: BlockIdentifier{
+			Index: int(Globals.OldestBlockNum),
+			Hash:  "0x" + hex.EncodeToString(Globals.OldestBlockHash[:]),
+		},
+		SyncStatus: SyncStatus{
+			Stage:  Globals.LastSyncStage,
+			Synced: Globals.IsSynced,
+		},
 	}
 	json.NewEncoder(w).Encode(response)
 }
