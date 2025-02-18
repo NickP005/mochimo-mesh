@@ -545,3 +545,51 @@ curl -X POST http://api-aus.mochimo.org:8080/call \
   "idempotent": true
 }
 ```
+
+## Search Transactions
+Search for transactions with various filters:
+
+### Search by Account Address
+```bash
+curl -X POST http://0.0.0.0:8080/search/transactions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "network_identifier": {
+      "blockchain": "mochimo",
+      "network": "mainnet"
+    },
+    "account_identifier": {
+      "address": "0x9f810c2447a76e93b17ebff96c0b29952e4355f1"
+    }
+  }'
+```
+
+### Search by Block Index
+```bash
+curl -X POST http://api-aus.mochimo.org:8080/search/transactions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "network_identifier": {
+      "blockchain": "mochimo",
+      "network": "mainnet"
+    },
+    "block_identifier": {
+      "index": 12345
+    }
+  }'
+```
+
+### Search by Transaction Hash
+```bash
+curl -X POST http://api-aus.mochimo.org:8080/search/transactions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "network_identifier": {
+      "blockchain": "mochimo",
+      "network": "mainnet"
+    },
+    "transaction_identifier": {
+      "hash": "0x8c83f6b6b53ad70959016dbe08da2238ff9c6925980a9018cde8b28f454cf053"
+    }
+  }'
+```

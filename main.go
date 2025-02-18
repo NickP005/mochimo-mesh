@@ -102,6 +102,11 @@ func main() {
 	if Globals.OnlineMode {
 		r.HandleFunc("/construction/submit", constructionSubmitHandler).Methods("POST", "OPTIONS")
 	}
+
+	if Globals.EnableIndexer {
+		r.HandleFunc("/search/transactions", searchTransactionsHandler).Methods("POST", "OPTIONS")
+	}
+
 	elapsed := time.Since(start_time)
 
 	if Globals.EnableHTTPS {

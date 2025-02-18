@@ -7,6 +7,8 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
+var GLOBALS_LOG_LEVEL int
+
 // DatabaseConfig holds database connection configuration
 type DatabaseConfig struct {
 	Host     string
@@ -22,7 +24,9 @@ type Database struct {
 }
 
 // NewDatabase creates a new database connection
-func NewDatabase(config DatabaseConfig) (*Database, error) {
+func NewDatabase(config DatabaseConfig, log_level int) (*Database, error) {
+	GLOBALS_LOG_LEVEL = log_level
+
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
 		config.User,
 		config.Password,

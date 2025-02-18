@@ -28,6 +28,29 @@ func Init() {
 			time.Sleep(REFRESH_SYNC_INTERVAL)
 		}
 
+		// Start the indexer
+
+		if Globals.EnableIndexer {
+			go func() {
+				// Create database
+				db, err := indexer.NewDatabase(indexer.DatabaseConfig{
+					Host:     Globals.IndexerHost,
+					Port:     Globals.IndexerPort,
+					User:     Globals.IndexerUser,
+					Password: Globals.IndexerPassword,
+					Database: Globals.IndexerDatabase,
+				}, Globals.LogLevel)
+				if err != nil {
+					mlog(3, "§bInit(): §4Error creating indexer database: §c%s", err)
+					Globals.EnableIndexer = false
+					return
+				}
+				INDEXER_DB = db
+
+				mlog(5, "§bInit(): §7Indexer database created")
+			}()
+		}
+
 		ticker := time.NewTicker(REFRESH_SYNC_INTERVAL)
 		defer ticker.Stop()
 
@@ -39,27 +62,6 @@ func Init() {
 		}
 	}()
 
-	// Start the indexer
-	if Globals.EnableIndexer {
-		go func() {
-			// Create database
-			db, err := indexer.NewDatabase(indexer.DatabaseConfig{
-				Host:     Globals.IndexerHost,
-				Port:     Globals.IndexerPort,
-				User:     Globals.IndexerUser,
-				Password: Globals.IndexerPassword,
-				Database: Globals.IndexerDatabase,
-			})
-			if err != nil {
-				mlog(3, "§bInit(): §4Error creating indexer database: §c%s", err)
-				return
-			}
-			INDEXER_DB = db
-
-			mlog(5, "§bInit(): §7Indexer database created")
-
-		}()
-	}
 }
 
 func Sync() bool {
@@ -107,6 +109,44 @@ func Sync() bool {
 	mlog(2, "LatestBlockNum: §e%d", Globals.LatestBlockNum)
 	mlog(3, "LatestBlockHash: §60x%s", hex.EncodeToString(Globals.LatestBlockHash[:]))
 	mlog(3, "CurrentBlockUnixMilli: §e%d §f(§9%d seconds§f ago)", Globals.CurrentBlockUnixMilli, (time.Now().UnixMilli()-int64(Globals.CurrentBlockUnixMilli))/1000)
+
+	// Update the indexer
+	/*
+		if Globals.EnableIndexer {
+			go func() {
+				currentBlock := Globals.LatestBlockNum
+				for currentBlock > 0 {
+					// Skip blocks that are multiples of 256
+					if (currentBlock & 0xFF) == 0 {
+						currentBlock--
+						continue
+					}
+
+					trials := 0
+					for trials < 3 {
+						mlog(5, "§bSync(): §7Querying block §e%d§7 data for indexer", currentBlock)
+						block, err := go_mcminterface.QueryBlockFromNumber(currentBlock)
+						if err == nil {
+							mlog(5, "§bSync(): §7Pushing block §e%d§7 to indexer", currentBlock)
+							INDEXER_DB.PushBlock(block)
+							break
+						}
+
+						mlog(3, "§bSync(): §4Error querying block §e%d§7: §c%s (trial %d/3)", currentBlock, err, trials+1)
+						time.Sleep(5 * time.Second)
+						trials++
+					}
+
+					if trials == 3 {
+						mlog(3, "§bSync(): §4Failed to query block §e%d§7 after 3 attempts", currentBlock)
+						break
+					}
+
+					currentBlock--
+				}
+			}()
+		}*/
+
 	return true
 }
 
@@ -180,6 +220,21 @@ func RefreshSync() error {
 	if Globals.SuggestedFee != minfees[position] && minfees[position] > 500 {
 		Globals.SuggestedFee = minfees[position]
 		mlog(2, "§bRefreshSync(): §7Suggested fee set to §e%d §7being §e%d%% §7lower percentile", Globals.SuggestedFee, position+1)
+	}
+
+	// Update the indexer
+	if Globals.EnableIndexer && (Globals.LatestBlockNum&0xFF) != 0 {
+		go func() {
+			mlog(5, "§bRefreshSync(): §7Querying block §e%d§7 data for indexer", Globals.LatestBlockNum)
+			block, err := go_mcminterface.QueryBlockFromNumber(0)
+			if err != nil {
+				mlog(3, "§bRefreshSync(): §4Error querying block: §c%s", err)
+				return
+			}
+
+			mlog(5, "§bRefreshSync(): §7Pushing block §e%d§7 to indexer", Globals.LatestBlockNum)
+			INDEXER_DB.PushBlock(block)
+		}()
 	}
 
 	return nil
