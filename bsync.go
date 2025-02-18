@@ -7,7 +7,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/NickP005/mochimo-mesh/indexer"
+	"mochimo-mesh/indexer"
 
 	"github.com/NickP005/go_mcminterface"
 )
@@ -16,6 +16,8 @@ var REFRESH_SYNC_INTERVAL time.Duration = 10
 var SUGGESTED_FEE_PERC float64 = 0.25 // the percentile of the minimum fee
 var TFILE_PATH = "mochimo/bin/d/tfile.dat"
 var SETTINGS_PATH string = "interface_settings.json"
+
+var INDEXER_DB *indexer.Database
 
 func Init() {
 	// Start in another separate thread the syncer.
@@ -40,7 +42,22 @@ func Init() {
 	// Start the indexer
 	if Globals.EnableIndexer {
 		go func() {
-			indexer.Init()
+			// Create database
+			db, err := indexer.NewDatabase(indexer.DatabaseConfig{
+				Host:     Globals.IndexerHost,
+				Port:     Globals.IndexerPort,
+				User:     Globals.IndexerUser,
+				Password: Globals.IndexerPassword,
+				Database: Globals.IndexerDatabase,
+			})
+			if err != nil {
+				mlog(3, "§bInit(): §4Error creating indexer database: §c%s", err)
+				return
+			}
+			INDEXER_DB = db
+
+			mlog(5, "§bInit(): §7Indexer database created")
+
 		}()
 	}
 }
