@@ -1,1 +1,5 @@
-package main
+package indexer
+
+func main() {
+	// examples here
+}
