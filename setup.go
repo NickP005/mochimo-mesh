@@ -21,7 +21,7 @@ func Setup() {
 func SetupFlags() bool {
 	solo_node := ""
 
-	flag.StringVar(&SETTINGS_PATH, "settings", "interface_settings.json", "Path to the settings file")
+	flag.StringVar(&SETTINGS_PATH, "settings", "interface_settings.json", "Path to the interface settings file")
 	flag.StringVar(&TFILE_PATH, "tfile", "mochimo/bin/d/tfile.dat", "Path to node's tfile.dat file")
 	flag.StringVar(&TXCLEANFILE_PATH, "txclean", "mochimo/bin/d/txclean.dat", "Path to node's txclean.dat file")
 	flag.Float64Var(&SUGGESTED_FEE_PERC, "fp", 0.4, "The lower percentile of fees set in recent blocks")
@@ -34,6 +34,12 @@ func SetupFlags() bool {
 	flag.BoolVar(&Globals.OnlineMode, "online", true, "Run in online mode")
 	flag.StringVar(&Globals.CertFile, "cert", "", "Path to SSL certificate file")
 	flag.StringVar(&Globals.KeyFile, "key", "", "Path to SSL private key file")
+	flag.BoolVar(&Globals.EnableIndexer, "indexer", false, "Enable the indexer")
+	flag.StringVar(&Globals.IndexerHost, "dbh", "localhost", "Indexer host")
+	flag.IntVar(&Globals.IndexerPort, "dbp", 3306, "Indexer port")
+	flag.StringVar(&Globals.IndexerUser, "dbu", "root", "Indexer user")
+	flag.StringVar(&Globals.IndexerPassword, "dbpw", "", "Indexer password")
+	flag.StringVar(&Globals.IndexerDatabase, "dbdb", "mochimo", "Indexer database")
 
 	flag.Parse()
 

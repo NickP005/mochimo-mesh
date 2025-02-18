@@ -32,13 +32,20 @@ Sample Response:
 ```json
 {
   "current_block_identifier": {
-    "index": 659993,
-    "hash": "0x083c7b414eae614047c73b5ee856915c2f4ed34c9efd8f5b8c52dff58e4d62ea"
+    "index": 668405,
+    "hash": "0xa0960ecded5e127e800b92f4e673880fcaa168caea3b504bd28b1399cceebf30"
   },
+  "current_block_timestamp": 1739871932000,
   "genesis_block_identifier": {
     "hash": "0x00170c6711b9dc3ca746c46cc281bc69e303dfad2f333ba397ba061eccefde03"
   },
-  "current_block_timestamp": 1738875264000
+  "oldest_block_identifier": {
+    "hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "sync_status": {
+    "stage": "synchronized",
+    "synced": true
+  }
 }
 ```
 

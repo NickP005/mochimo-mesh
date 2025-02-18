@@ -7,6 +7,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/NickP005/mochimo-mesh/indexer"
+
 	"github.com/NickP005/go_mcminterface"
 )
 
@@ -34,6 +36,13 @@ func Init() {
 			}
 		}
 	}()
+
+	// Start the indexer
+	if Globals.EnableIndexer {
+		go func() {
+			indexer.Init()
+		}()
+	}
 }
 
 func Sync() bool {
@@ -97,6 +106,7 @@ func RefreshSync() error {
 	same := latest_block == Globals.LatestBlockNum
 	if same {
 		mlog(5, "§bRefreshSync(): §7No new block number detected (still at §e%d§7)", latest_block)
+		Globals.LastSyncStage = "synchronized"
 		Globals.IsSynced = true
 		return nil
 	}

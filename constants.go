@@ -42,6 +42,12 @@ var Globals = GlobalsType{
 	CurrentBlockUnixMilli: 0,
 	SuggestedFee:          500,
 	MaxWOTSTXLen:          13628,
+	EnableIndexer:         false,
+	IndexerHost:           "localhost",
+	IndexerPort:           3306,
+	IndexerUser:           "root",
+	IndexerPassword:       "",
+	IndexerDatabase:       "mochimo",
 }
 
 type ConstantType struct {
@@ -77,4 +83,10 @@ type GlobalsType struct {
 	SuggestedFee          uint64
 	HashToBlockNumber     map[string]uint32
 	MaxWOTSTXLen          uint32
+	EnableIndexer         bool
+	IndexerHost           string
+	IndexerPort           int
+	IndexerUser           string
+	IndexerPassword       string
+	IndexerDatabase       string
 }
