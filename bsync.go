@@ -153,10 +153,10 @@ func Sync() bool {
 func RefreshSync() error {
 	// Set the latest block number
 	//mlog(5, "§bRefreshSync(): §7Fetching latest block number")
-	Globals.LastSyncStage = "block check"
 	latest_block, error := go_mcminterface.QueryLatestBlockNumber()
 	if error != nil {
 		mlog(3, "§bRefreshSync(): §4Error fetching latest block number: §c%s", error)
+		Globals.LastSyncStage = "latest block error"
 		Globals.IsSynced = false
 		return error
 	}
@@ -168,14 +168,15 @@ func RefreshSync() error {
 		return nil
 	}
 	mlog(4, "§bRefreshSync(): §7New block number detected: §e%d", latest_block)
+	Globals.LastSyncStage = "synchronizing"
 	Globals.IsSynced = false
 
 	// Set the hash of the latest block and the Solve Timestamp (Stime)
-	Globals.LastSyncStage = "block sync"
 	mlog(5, "§bRefreshSync(): §7Fetching latest block trailer")
 	latest_trailer, error := getBTrailer(uint32(latest_block))
 	if error != nil {
 		mlog(3, "§bRefreshSync(): §4Error fetching latest block trailer: §c%s", error)
+		Globals.LastSyncStage = "latest trailer error"
 		return error
 	}
 	Globals.LatestBlockNum = latest_block
@@ -184,10 +185,10 @@ func RefreshSync() error {
 
 	// get the last 100 block hashes and add them to the block map
 	mlog(5, "§bRefreshSync(): §7Reading latest §e100§7 blocks map from §8%s", TFILE_PATH)
-	Globals.LastSyncStage = "map update"
 	blockmap, error := readBlockMap(100, TFILE_PATH)
 	if error != nil {
 		log.Default().Println("Sync() failed: Error reading block map")
+		Globals.LastSyncStage = "block map error"
 		return error
 	}
 	for k, v := range blockmap {
@@ -202,6 +203,7 @@ func RefreshSync() error {
 	minfee_map, error := readMinFeeMap(100, TFILE_PATH)
 	if error != nil {
 		log.Default().Println("Sync() failed: Error reading minimum fee map")
+		Globals.LastSyncStage = "min fee error"
 		return error
 	}
 	for _, v := range minfee_map {

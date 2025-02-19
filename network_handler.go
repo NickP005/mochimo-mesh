@@ -40,12 +40,8 @@ func networkStatusHandler(w http.ResponseWriter, r *http.Request) {
 		},
 		CurrentBlockTimestamp: int64(Globals.CurrentBlockUnixMilli),
 		GenesisBlockIdentifier: BlockIdentifier{
-			Index: 0,
+			Index: int(Globals.GenesisBlockNum),
 			Hash:  "0x" + hex.EncodeToString(Globals.GenesisBlockHash[:]),
-		},
-		OldestBlockIdentifier: BlockIdentifier{
-			Index: int(Globals.OldestBlockNum),
-			Hash:  "0x" + hex.EncodeToString(Globals.OldestBlockHash[:]),
 		},
 		SyncStatus: SyncStatus{
 			Stage:  Globals.LastSyncStage,
