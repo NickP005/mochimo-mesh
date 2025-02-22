@@ -677,6 +677,9 @@ func constructionSubmitHandler(w http.ResponseWriter, r *http.Request) {
 		giveError(w, ErrInternalError)
 		return
 	}
+	// mlog nonce and hash
+	mlog(5, "§bconstructionSubmitHandler(): §7Nonce: §60x%x", transaction.GetNonce())
+	mlog(5, "§bconstructionSubmitHandler(): §7Hash: §60x%x", transaction.Hash())
 
 	// Construct the response
 	response := ConstructionSubmitResponse{

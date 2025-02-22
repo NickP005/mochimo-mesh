@@ -1,7 +1,7 @@
 filippo.io/edwards25519 v1.1.0 h1:FNf4tywRC1HmFuKW5xopWpigGjJKiJSV0Cqo0cJWDaA=
 filippo.io/edwards25519 v1.1.0/go.mod h1:BxyFTGdWcka3PhytdK4V28tE5sGfRvvvRV7EaN4VDT4=
-github.com/NickP005/go_mcminterface v1.0.20 h1:M0+P1ASD4H1PP08PwyHfOYkTYuOimuC5Ue4/4hAgt6k=
-github.com/NickP005/go_mcminterface v1.0.20/go.mod h1:BmLgQUtM6vT0JllDItdipni3Iphums5uhG3O6wosgro=
+github.com/NickP005/go_mcminterface v1.0.21 h1:Y3s4rejfptDA/K34KYDTkEE4LwkMoPN235MAV0GicjE=
+github.com/NickP005/go_mcminterface v1.0.21/go.mod h1:BmLgQUtM6vT0JllDItdipni3Iphums5uhG3O6wosgro=
 github.com/aead/siphash v1.0.1/go.mod h1:Nywa3cDsYNNK3gaciGTWPwHt0wlpNV15vwmswBAUSII=
 github.com/btcsuite/btcd v0.20.1-beta/go.mod h1:wVuoA8VJLEcwgqHBwHmzLRazpKxTv13Px/pDuV7OomQ=
 github.com/btcsuite/btclog v0.0.0-20170628155309-84c8d2346e9f/go.mod h1:TdznJufoqS23FtqVCzL0ZqgP5MqXbb4fg/WgDys70nA=

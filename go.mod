@@ -3,7 +3,7 @@ module mochimo-mesh
 go 1.22.5
 
 require (
-	github.com/NickP005/go_mcminterface v1.0.20
+	github.com/NickP005/go_mcminterface v1.0.21
 	github.com/btcsuite/btcutil v1.0.2
 	github.com/go-sql-driver/mysql v1.9.0
 	github.com/gorilla/mux v1.8.1
