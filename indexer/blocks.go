@@ -24,7 +24,7 @@ func (d *Database) PushBlock(block go_mcminterface.Block) {
 		blockStatus = StatusTypeAccepted // Neogen blocks are always accepted
 	} else if block.Header.Hdrlen == 32 {
 		blockType = BlockTypeStandard
-		blockStatus = StatusTypePending // Standard blocks start as pending
+		blockStatus = StatusTypeAccepted // TO REVIEW THIS LOGIC
 	} else {
 		blockType = BlockTypeGenesis
 		blockStatus = StatusTypeAccepted // Genesis block is always accepted
