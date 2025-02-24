@@ -89,7 +89,7 @@ func getBlock(blockIdentifier BlockIdentifier) (Block, error) {
 			Index: int(binary.LittleEndian.Uint64(blockData.Trailer.Bnum[:])) - 1,
 			Hash:  fmt.Sprintf("0x%x", blockData.Trailer.Phash[:]),
 		},
-		Timestamp:    int64(binary.LittleEndian.Uint32(blockData.Trailer.Time0[:])) * 1000, // Convert to milliseconds
+		Timestamp:    int64(binary.LittleEndian.Uint32(blockData.Trailer.Stime[:])) * 1000, // Convert to milliseconds
 		Transactions: []Transaction{},
 		Metadata:     metadata,
 	}
