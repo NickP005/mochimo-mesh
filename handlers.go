@@ -1,11 +1,14 @@
 package main
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/NickP005/go_mcminterface"
 )
 
 type NetworkIdentifier struct {
@@ -14,13 +17,22 @@ type NetworkIdentifier struct {
 }
 
 type BlockIdentifier struct {
-	Index int    `json:"index,omitempty"`
-	Hash  string `json:"hash,omitempty"`
+	Index int    `json:"index"`
+	Hash  string `json:"hash"`
 }
 
-type BlockRequest struct {
-	NetworkIdentifier NetworkIdentifier `json:"network_identifier"`
-	BlockIdentifier   BlockIdentifier   `json:"block_identifier"`
+type AccountIdentifier struct {
+	Address  string                 `json:"address"`
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// Convert to AccounIdentifier a WotsAddress struct. The tag is considered as the address.
+func getAccountFromAddress(address go_mcminterface.WotsAddress) AccountIdentifier {
+	tag_hex := "0x" + hex.EncodeToString(address.GetTAG())
+
+	return AccountIdentifier{
+		Address: tag_hex,
+	}
 }
 
 type SyncStatus struct {
@@ -66,46 +78,6 @@ type Block struct {
 	Metadata              map[string]interface{} `json:"metadata,omitempty"`
 }
 
-type BlockResponse struct {
-	Block Block  `json:"block"`
-	Error string `json:"error,omitempty"`
-}
-
-type NetworkListResponse struct {
-	NetworkIdentifiers []NetworkIdentifier `json:"network_identifiers"`
-}
-
-type NetworkStatusResponse struct {
-	CurrentBlockIdentifier BlockIdentifier `json:"current_block_identifier"`
-	CurrentBlockTimestamp  int64           `json:"current_block_timestamp"`
-	GenesisBlockIdentifier BlockIdentifier `json:"genesis_block_identifier"`
-	OldestBlockIdentifier  BlockIdentifier `json:"oldest_block_identifier"`
-	SyncStatus             SyncStatus      `json:"sync_status"`
-	//Peers                  []string        `json:"peers"`
-}
-
-type NetworkOptionsResponse struct {
-	Version struct {
-		RosettaVersion    string `json:"rosetta_version"`
-		NodeVersion       string `json:"node_version"`
-		MiddlewareVersion string `json:"middleware_version"`
-	} `json:"version"`
-	Allow struct {
-		OperationStatuses []struct {
-			Status     string `json:"status"`
-			Successful bool   `json:"successful"`
-		} `json:"operation_statuses"`
-		OperationTypes []string `json:"operation_types"`
-		Errors         []struct {
-			Code      int    `json:"code"`
-			Message   string `json:"message"`
-			Retriable bool   `json:"retriable"`
-		} `json:"errors"`
-		MempoolCoins        bool   `json:"mempool_coins"`
-		TransactionHashCase string `json:"transaction_hash_case"`
-	} `json:"allow"`
-}
-
 // check that the request is a post request with  "network_identifier": { "blockchain": "mochimo", "network": "mainnet" }
 
 func checkIdentifier(r *http.Request) (BlockRequest, error) {
@@ -120,6 +92,30 @@ func checkIdentifier(r *http.Request) (BlockRequest, error) {
 		return BlockRequest{}, fmt.Errorf("invalid network identifier")
 	}
 	return req, nil
+}
+
+type Amount struct {
+	Value    string `json:"value"`
+	Currency struct {
+		Symbol   string `json:"symbol"`
+		Decimals int    `json:"decimals"`
+	} `json:"currency"`
+}
+
+type Currency struct {
+	Symbol   string `json:"symbol"`
+	Decimals int    `json:"decimals"`
+}
+
+var MCMCurrency = Currency{
+	Symbol:   "MCM",
+	Decimals: 9,
+}
+
+type OperationIdentifier struct {
+	Index int `json:"index"`
+	// Add `NetworkIndex` if needed in your use case:
+	// NetworkIndex *int `json:"network_index,omitempty"`
 }
 
 // enum error codes

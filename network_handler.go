@@ -7,6 +7,11 @@ import (
 )
 
 // /network/list
+
+type NetworkListResponse struct {
+	NetworkIdentifiers []NetworkIdentifier `json:"network_identifiers"`
+}
+
 func networkListHandler(w http.ResponseWriter, r *http.Request) {
 	mlog(5, "§bnetworkListHandler(): §fRequest from §9%s§f to §9%s§f with method §9%s", r.RemoteAddr, r.URL.Path, r.Method)
 	response := NetworkListResponse{
@@ -21,6 +26,16 @@ func networkListHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // /network/status
+
+type NetworkStatusResponse struct {
+	CurrentBlockIdentifier BlockIdentifier `json:"current_block_identifier"`
+	CurrentBlockTimestamp  int64           `json:"current_block_timestamp"`
+	GenesisBlockIdentifier BlockIdentifier `json:"genesis_block_identifier"`
+	OldestBlockIdentifier  BlockIdentifier `json:"oldest_block_identifier"`
+	SyncStatus             SyncStatus      `json:"sync_status"`
+	//Peers                  []string        `json:"peers"`
+}
+
 // TODO: Add peers
 func networkStatusHandler(w http.ResponseWriter, r *http.Request) {
 	_, err := checkIdentifier(r)
@@ -52,7 +67,29 @@ func networkStatusHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // /network/options
-// /network/options
+
+type NetworkOptionsResponse struct {
+	Version struct {
+		RosettaVersion    string `json:"rosetta_version"`
+		NodeVersion       string `json:"node_version"`
+		MiddlewareVersion string `json:"middleware_version"`
+	} `json:"version"`
+	Allow struct {
+		OperationStatuses []struct {
+			Status     string `json:"status"`
+			Successful bool   `json:"successful"`
+		} `json:"operation_statuses"`
+		OperationTypes []string `json:"operation_types"`
+		Errors         []struct {
+			Code      int    `json:"code"`
+			Message   string `json:"message"`
+			Retriable bool   `json:"retriable"`
+		} `json:"errors"`
+		MempoolCoins        bool   `json:"mempool_coins"`
+		TransactionHashCase string `json:"transaction_hash_case"`
+	} `json:"allow"`
+}
+
 func networkOptionsHandler(w http.ResponseWriter, r *http.Request) {
 	_, err := checkIdentifier(r)
 	if err != nil {

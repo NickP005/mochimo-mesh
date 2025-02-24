@@ -10,6 +10,16 @@ import (
 	"github.com/NickP005/go_mcminterface"
 )
 
+type BlockRequest struct {
+	NetworkIdentifier NetworkIdentifier `json:"network_identifier"`
+	BlockIdentifier   BlockIdentifier   `json:"block_identifier"`
+}
+
+type BlockResponse struct {
+	Block Block  `json:"block"`
+	Error string `json:"error,omitempty"`
+}
+
 func blockHandler(w http.ResponseWriter, r *http.Request) {
 	req, err := checkIdentifier(r)
 	if err != nil {
@@ -31,44 +41,6 @@ func blockHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
-}
-
-type AccountIdentifier struct {
-	Address  string                 `json:"address"`
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
-}
-
-// Convert to AccounIdentifier a WotsAddress struct. The tag is considered as the address.
-func getAccountFromAddress(address go_mcminterface.WotsAddress) AccountIdentifier {
-	tag_hex := "0x" + hex.EncodeToString(address.GetTAG())
-
-	return AccountIdentifier{
-		Address: tag_hex,
-	}
-}
-
-type Amount struct {
-	Value    string `json:"value"`
-	Currency struct {
-		Symbol   string `json:"symbol"`
-		Decimals int    `json:"decimals"`
-	} `json:"currency"`
-}
-
-type Currency struct {
-	Symbol   string `json:"symbol"`
-	Decimals int    `json:"decimals"`
-}
-
-var MCMCurrency = Currency{
-	Symbol:   "MCM",
-	Decimals: 9,
-}
-
-type OperationIdentifier struct {
-	Index int `json:"index"`
-	// Add `NetworkIndex` if needed in your use case:
-	// NetworkIndex *int `json:"network_index,omitempty"`
 }
 
 // Operations contains the changes to the state.
