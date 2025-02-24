@@ -206,7 +206,7 @@ func getStatusTypeFromString(status string) int16 {
 	switch status {
 	case "PENDING":
 		return StatusTypePending
-	case "ACCEPTED":
+	case "SUCCESS":
 		return StatusTypeAccepted
 	case "SPLIT":
 		return StatusTypeSplit
@@ -275,7 +275,7 @@ func getStatusTypeString(statusID int16) string {
 	case StatusTypePending:
 		return "PENDING"
 	case StatusTypeAccepted:
-		return "ACCEPTED"
+		return "SUCCESS"
 	case StatusTypeSplit:
 		return "SPLIT"
 	case StatusTypeOrphaned:
