@@ -74,7 +74,10 @@ func networkOptionsHandler(w http.ResponseWriter, r *http.Request) {
 	}{
 		{"SUCCESS", true},
 		{"PENDING", false},
+		{"SPLIT", false},
+		{"ORPHANED", false},
 		{"FAILURE", false},
+		{"UNKNOWN", false},
 	}
 
 	// Define the operation types allowed by the network

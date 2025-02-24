@@ -76,6 +76,9 @@ Sample Response:
     "operation_statuses": [
       { "status": "SUCCESS", "successful": true },
       { "status": "PENDING", "successful": false },
+      { "status": "SPLIT", "successful": false },
+      { "status": "ORPHANED", "successful": false },
+      { "status": "UNKNOWN", "successful": false },
       { "status": "FAILURE", "successful": false }
     ],
     "operation_types": ["TRANSFER", "REWARD", "FEE"],
@@ -551,7 +554,7 @@ Search for transactions with various filters:
 
 ### Search by Account Address
 ```bash
-curl -X POST http://0.0.0.0:8080/search/transactions \
+curl -X POST http://api-aus.mochimo.org:8080/search/transactions \
   -H "Content-Type: application/json" \
   -d '{
     "network_identifier": {
@@ -563,6 +566,30 @@ curl -X POST http://0.0.0.0:8080/search/transactions \
     }
   }'
 ```
+
+One could perhaps add to any of the search queries a limit, an offset, a max block and a status type to filter the results.
+For example:
+```json
+{
+  "network_identifier": {
+    "blockchain": "mochimo",
+    "network": "mainnet"
+  },
+  "account_identifier": {
+    "address": "0x9f810c2447a76e93b17ebff96c0b29952e4355f1"
+  },
+  "limit": 100,
+  "max_block": 673039,
+  "offset": 0,
+  "status": "SUCCESS"
+}
+```
+
+This would:
+- Limit results to 100 transactions
+- Only show transactions up to block 12445
+- Start from the first result (offset 0)
+- Only show successful transactions (the possible status are on the [Network Options](#network-options) section)
 
 ### Search by Block Index
 ```bash
