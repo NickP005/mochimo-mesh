@@ -43,8 +43,134 @@ func blockHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// Operations contains the changes to the state.
-// Each TX has 4 operations: 1 for the source, 1 for the destination, and 1 for the change address.
+func getBlock(blockIdentifier BlockIdentifier) (Block, error) {
+	var blockData go_mcminterface.Block
+	var err error
+
+	// Query block by number or hash
+	if blockIdentifier.Index != 0 { /* Fetch block by number */
+		mlog(5, "§bgetBlock(): §7Fetching block §9%d", blockIdentifier.Index)
+		blockData, err = go_mcminterface.QueryBlockFromNumber(uint64(blockIdentifier.Index))
+		if err != nil {
+			return Block{}, err
+		}
+	} else if blockIdentifier.Hash != "" && len(blockIdentifier.Hash) <= 32*2+2 { /* Fetch block by hash */
+		// first of all check if it's archived in our data folder
+		mlog(5, "§bgetBlock(): §7Fetching block with hash §9%s", blockIdentifier.Hash)
+		blockData, err = getBlockByHexHash(blockIdentifier.Hash)
+		if err != nil {
+			return Block{}, err
+		}
+	} else { /* Fetch the current block */
+		mlog(5, "§bgetBlock(): §7Fetching current block")
+		blockData, err = go_mcminterface.QueryBlockFromNumber(0)
+		if err != nil {
+			return Block{}, err
+		}
+	}
+
+	metadata := map[string]interface{}{
+		"block_size": len(blockData.GetBytes()),
+		"difficulty": binary.LittleEndian.Uint32(blockData.Trailer.Difficulty[:]),
+		"nonce":      fmt.Sprintf("0x%x", blockData.Trailer.Nonce[:]),
+		"root":       fmt.Sprintf("0x%x", blockData.Trailer.Mroot[:]),
+		"fee":        binary.LittleEndian.Uint64(blockData.Trailer.Mfee[:]),
+		"tx_count":   binary.LittleEndian.Uint32(blockData.Trailer.Tcount[:]),
+		"stime":      int64(binary.LittleEndian.Uint32(blockData.Trailer.Stime[:])) * 1000, // Convert to milliseconds
+	}
+
+	// Construct the Block struct
+	block := Block{
+		BlockIdentifier: BlockIdentifier{
+			Index: int(binary.LittleEndian.Uint64(blockData.Trailer.Bnum[:])),
+			Hash:  fmt.Sprintf("0x%x", blockData.Trailer.Bhash[:]),
+		},
+		ParentBlockIdentifier: BlockIdentifier{
+			Index: int(binary.LittleEndian.Uint64(blockData.Trailer.Bnum[:])) - 1,
+			Hash:  fmt.Sprintf("0x%x", blockData.Trailer.Phash[:]),
+		},
+		Timestamp:    int64(binary.LittleEndian.Uint32(blockData.Trailer.Time0[:])) * 1000, // Convert to milliseconds
+		Transactions: []Transaction{},
+		Metadata:     metadata,
+	}
+
+	// Populate transactions
+	block.Transactions = getTransactionsFromBlock(blockData)
+
+	return block, nil
+}
+
+func getBlockByHexHash(hexHash string) (go_mcminterface.Block, error) {
+	blockData, err := getBlockInDataFolder(hexHash)
+	if err != nil {
+		mlog(5, "§bgetBlockByHexHash(): §7Block not found in data folder, fetching from the network. Error: §c%s", err)
+		// check in the Globals.HashToBlockNumber map the block number
+		blockNumber, ok := Globals.HashToBlockNumber[hexHash]
+		if !ok {
+			mlog(5, "§bgetBlockByHexHash(): §7Block §6%s§7 not found in the block map", hexHash)
+			// print the map hash as hex : int
+			/*
+				for k, v := range Globals.HashToBlockNumber {
+					fmt.Println("Hash: ", k, "Block Number: ", v)
+				}*/
+			return go_mcminterface.Block{}, err
+		}
+		mlog(5, "§bgetBlockByHexHash(): §fBlock found in the block map: §6%d", blockNumber)
+		blockData, err = go_mcminterface.QueryBlockFromNumber(uint64(blockNumber))
+		if err != nil {
+			return go_mcminterface.Block{}, err
+		}
+		bdata_hexhash := "0x" + hex.EncodeToString(blockData.Trailer.Bhash[:])
+		if bdata_hexhash != hexHash {
+			return go_mcminterface.Block{}, fmt.Errorf("block hash mismatch")
+		}
+		// backup the block in the data folder
+		saveBlockInDataFolder(blockData)
+	}
+
+	return blockData, nil
+}
+
+// helper function to get the transactions from a block
+func getTransactionsFromBlock(block go_mcminterface.Block) []Transaction {
+	transactions := []Transaction{}
+	var maddr go_mcminterface.WotsAddress
+	maddr.SetTAG(block.Header.Maddr[:])
+
+	// Add miner reward operation
+	if block.Header.Mreward > 0 {
+		minerRewardOperation := Operation{
+			OperationIdentifier: OperationIdentifier{
+				Index: 0,
+			},
+			Type:    "REWARD",
+			Status:  "SUCCESS",
+			Account: getAccountFromAddress(maddr),
+			Amount: Amount{
+				Value:    fmt.Sprintf("%d", block.Header.Mreward),
+				Currency: MCMCurrency,
+			},
+		}
+		// Append miner reward operation as a standalone transaction
+		transactions = append(transactions, Transaction{
+			TransactionIdentifier: TransactionIdentifier{
+				Hash: fmt.Sprintf("0x%x", block.Trailer.Bhash[:]),
+			},
+			Operations: []Operation{minerRewardOperation},
+		})
+	}
+
+	transactions = append(transactions, getTransactionsFromBlockBody(block.Body, maddr, true)...)
+
+	return transactions
+}
+
+// Operations contains the changes to the state (such as deltas), not the final balances.
+// Each TX has the following operations:
+// 1. Source Transfer: -amount
+// 2. Destination Transfer(s): +amount
+// 3. Fee: +fee
+
 func getTransactionsFromBlockBody(txentries []go_mcminterface.TXENTRY, maddr go_mcminterface.WotsAddress, is_success bool) []Transaction {
 	var transactions []Transaction
 	var status string = "SUCCESS"
@@ -87,6 +213,7 @@ func getTransactionsFromBlockBody(txentries []go_mcminterface.TXENTRY, maddr go_
 
 		change_address := tx.GetChangeAddress().Address
 		change_addrhash := hex.EncodeToString(change_address[20:])
+
 		// Remove from source
 		operations = append(operations, Operation{
 			OperationIdentifier: OperationIdentifier{
@@ -134,128 +261,6 @@ func getTransactionsFromBlockBody(txentries []go_mcminterface.TXENTRY, maddr go_
 	return transactions
 }
 
-// helper function to get the transactions (included imaginary) from a block
-func getTransactionsFromBlock(block go_mcminterface.Block) []Transaction {
-	transactions := []Transaction{}
-	var maddr go_mcminterface.WotsAddress
-	maddr.SetTAG(block.Header.Maddr[:])
-
-	// Add miner reward operation
-	if block.Header.Mreward > 0 {
-		minerRewardOperation := Operation{
-			OperationIdentifier: OperationIdentifier{
-				Index: 0,
-			},
-			Type:    "REWARD",
-			Status:  "SUCCESS",
-			Account: getAccountFromAddress(maddr),
-			Amount: Amount{
-				Value:    fmt.Sprintf("%d", block.Header.Mreward),
-				Currency: MCMCurrency,
-			},
-		}
-		// Append miner reward operation as a standalone transaction
-		transactions = append(transactions, Transaction{
-			TransactionIdentifier: TransactionIdentifier{
-				Hash: fmt.Sprintf("0x%x", block.Trailer.Bhash[:]),
-			},
-			Operations: []Operation{minerRewardOperation},
-		})
-	}
-
-	transactions = append(transactions, getTransactionsFromBlockBody(block.Body, maddr, true)...)
-
-	return transactions
-}
-
-func getBlockByHexHash(hexHash string) (go_mcminterface.Block, error) {
-	blockData, err := getBlockInDataFolder(hexHash)
-	if err != nil {
-		mlog(5, "§bgetBlockByHexHash(): §7Block not found in data folder, fetching from the network. Error: §c%s", err)
-		// check in the Globals.HashToBlockNumber map the block number
-		blockNumber, ok := Globals.HashToBlockNumber[hexHash]
-		if !ok {
-			mlog(5, "§bgetBlockByHexHash(): §7Block §6%s§7 not found in the block map", hexHash)
-			// print the map hash as hex : int
-			/*
-				for k, v := range Globals.HashToBlockNumber {
-					fmt.Println("Hash: ", k, "Block Number: ", v)
-				}*/
-			return go_mcminterface.Block{}, err
-		}
-		mlog(5, "§bgetBlockByHexHash(): §fBlock found in the block map: §6%d", blockNumber)
-		blockData, err = go_mcminterface.QueryBlockFromNumber(uint64(blockNumber))
-		if err != nil {
-			return go_mcminterface.Block{}, err
-		}
-		bdata_hexhash := "0x" + hex.EncodeToString(blockData.Trailer.Bhash[:])
-		if bdata_hexhash != hexHash {
-			return go_mcminterface.Block{}, fmt.Errorf("block hash mismatch")
-		}
-		// backup the block in the data folder
-		saveBlockInDataFolder(blockData)
-	}
-
-	return blockData, nil
-}
-
-func getBlock(blockIdentifier BlockIdentifier) (Block, error) {
-	var blockData go_mcminterface.Block
-	var err error
-
-	// Query block by number or hash
-	if blockIdentifier.Index != 0 {
-		mlog(5, "§bgetBlock(): §7Fetching block §9%d", blockIdentifier.Index)
-		blockData, err = go_mcminterface.QueryBlockFromNumber(uint64(blockIdentifier.Index))
-		if err != nil {
-			return Block{}, err
-		}
-	} else if blockIdentifier.Hash != "" && len(blockIdentifier.Hash) <= 32*2+2 {
-		// first of all check if it's archived in our data folder
-		mlog(5, "§bgetBlock(): §7Fetching block with hash §9%s", blockIdentifier.Hash)
-		blockData, err = getBlockByHexHash(blockIdentifier.Hash)
-		if err != nil {
-			return Block{}, err
-		}
-	} else {
-		mlog(5, "§bgetBlock(): §7Fetching genesis block")
-		blockData, err = go_mcminterface.QueryBlockFromNumber(0)
-		if err != nil {
-			return Block{}, err
-		}
-	}
-
-	metadata := map[string]interface{}{
-		"block_size": len(blockData.GetBytes()),
-		"difficulty": binary.LittleEndian.Uint32(blockData.Trailer.Difficulty[:]),
-		"nonce":      fmt.Sprintf("0x%x", blockData.Trailer.Nonce[:]),
-		"root":       fmt.Sprintf("0x%x", blockData.Trailer.Mroot[:]),
-		"fee":        binary.LittleEndian.Uint64(blockData.Trailer.Mfee[:]),
-		"tx_count":   binary.LittleEndian.Uint32(blockData.Trailer.Tcount[:]),
-		"stime":      int64(binary.LittleEndian.Uint32(blockData.Trailer.Stime[:])) * 1000, // Convert to milliseconds
-	}
-
-	// Construct the Block struct
-	block := Block{
-		BlockIdentifier: BlockIdentifier{
-			Index: int(binary.LittleEndian.Uint64(blockData.Trailer.Bnum[:])),
-			Hash:  fmt.Sprintf("0x%x", blockData.Trailer.Bhash[:]),
-		},
-		ParentBlockIdentifier: BlockIdentifier{
-			Index: int(binary.LittleEndian.Uint64(blockData.Trailer.Bnum[:])) - 1,
-			Hash:  fmt.Sprintf("0x%x", blockData.Trailer.Phash[:]),
-		},
-		Timestamp:    int64(binary.LittleEndian.Uint32(blockData.Trailer.Time0[:])) * 1000, // Convert to milliseconds
-		Transactions: []Transaction{},
-		Metadata:     metadata,
-	}
-
-	// Populate transactions
-	block.Transactions = getTransactionsFromBlock(blockData)
-
-	return block, nil
-}
-
 type BlockTransactionRequest struct {
 	NetworkIdentifier     NetworkIdentifier     `json:"network_identifier"`
 	BlockIdentifier       BlockIdentifier       `json:"block_identifier"`
@@ -270,10 +275,10 @@ func blockTransactionHandler(w http.ResponseWriter, r *http.Request) {
 	var req BlockTransactionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		mlog(3, "§bblockTransactionHandler(): §4Error decoding request: §c%s", err)
-		giveError(w, ErrInvalidRequest) // Invalid request body
+		giveError(w, ErrInvalidRequest)
 		return
 	}
-	// Check if the network identifier is correct
+
 	if req.NetworkIdentifier.Blockchain != Constants.NetworkIdentifier.Blockchain ||
 		req.NetworkIdentifier.Network != Constants.NetworkIdentifier.Network {
 		mlog(3, "§bblockTransactionHandler(): §4Wrong network identifier")
@@ -285,7 +290,7 @@ func blockTransactionHandler(w http.ResponseWriter, r *http.Request) {
 	block, err := getBlock(req.BlockIdentifier)
 	if err != nil {
 		mlog(3, "§bblockTransactionHandler(): §4Error fetching block: §c%s", err)
-		giveError(w, ErrBlockNotFound) // Block not found
+		giveError(w, ErrBlockNotFound)
 		return
 	}
 
@@ -300,16 +305,14 @@ func blockTransactionHandler(w http.ResponseWriter, r *http.Request) {
 
 	if foundTransaction == nil {
 		mlog(3, "§bblockTransactionHandler(): §4Transaction §6%s§7 not found", req.TransactionIdentifier.Hash)
-		giveError(w, ErrTXNotFound) // Transaction not found error
+		giveError(w, ErrTXNotFound)
 		return
 	}
 
-	// Create the response
 	response := BlockTransactionResponse{
 		Transaction: *foundTransaction,
 	}
 
-	// Set headers and encode the response as JSON
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
