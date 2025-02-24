@@ -1,7 +1,7 @@
-# Mochimo Mesh API v1.2.0
+# Mochimo Mesh API v1.3.0
 
-![Version](https://img.shields.io/badge/Version-1.1.2-blue)
-![Mochimo](https://img.shields.io/badge/Mochimo-v3pre2p1-green)
+![Version](https://img.shields.io/badge/Version-1.3.0-blue)
+![Mochimo](https://img.shields.io/badge/Mochimo-v3.0.2-green)
 ![Rosetta](https://img.shields.io/badge/Rosetta-v1.4.13-orange)
 
 A Rosetta API implementation for the Mochimo blockchain. This middleware provides standardized blockchain interaction via the Rosetta protocol.
