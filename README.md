@@ -29,6 +29,12 @@ A Rosetta API implementation for the Mochimo blockchain. This middleware provide
 | `-online` | bool | true | Run in online mode |
 | `-cert` | string | "" | Path to SSL certificate file |
 | `-key` | string | "" | Path to SSL private key file |
+| `-indexer` | bool | false | Enable the indexer |
+| `-dbh` | string | "localhost" | Indexer host |
+| `-dbp` | int | 3306 | Indexer port |
+| `-dbu` | string | "root" | Indexer user |
+| `-dbpw` | string | "" | Indexer password |
+| `-dbdb` | string | "mochimo" | Indexer database |
 
 ### Environment Variables
 - `MCM_CERT_FILE`: Path to SSL certificate
@@ -76,6 +82,33 @@ Add the following line to the crontab file to renew the certificate every day at
 ```bash
 0 12 * * * /usr/bin/certbot renew --quiet
 ```
+
+## Indexer Setup
+
+To enable the indexer, you need to configure the database connection and enable the indexer flag.
+
+1. **Database Setup**:
+   - Ensure you have a MySQL or MariaDB database server running.
+   - Create a database named `mochimo` (or specify a different name using the `-dbdb` flag).
+   - Create a user with the necessary privileges to access the database (or use the root user, but it's not recommended for production).
+   - **Important**: Generate the necessary tables in your database by using the `indexer/TABLE_SCHEMA.sql` file. This file contains the SQL schema required for the indexer to function correctly.
+
+2. **Configuration**:
+   You can configure the indexer using command-line flags:
+   ```
+   -indexer bool   Enable the indexer
+   -dbh string     Indexer host (default: "localhost")
+   -dbp int       Indexer port (default: 3306)
+   -dbu string     Indexer user (default: "root")
+   -dbpw string    Indexer password (default: "")
+   -dbdb string    Indexer database (default: "mochimo")
+   ```
+
+3. **Running with Indexer**:
+   To run the mesh with the indexer enabled, use the `-indexer` flag along with the database configuration flags:
+   ```bash
+   ./mesh -indexer -dbh your_db_host -dbp your_db_port -dbu your_db_user -dbpw your_db_password -dbdb your_db_name
+   ```
 
 ## Quick Start with Docker
 
