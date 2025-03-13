@@ -1,6 +1,6 @@
 # Mochimo Mesh API Query Examples
 
-> Note: The example address `0xkHtV35ttVpyiH42FePCiHo2iFmcJS3` is owned by MeshAPI maintaner NickP005 – feel free to use it for testing or sending bounties!
+> Note: The example address `kHtV35ttVpyiH42FePCiHo2iFmcJS3` is owned by MeshAPI maintaner NickP005 – feel free to use it for testing or sending bounties!
 
 ---
 
