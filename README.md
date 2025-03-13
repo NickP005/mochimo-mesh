@@ -15,11 +15,7 @@ A Rosetta API implementation for the Mochimo blockchain. This middleware provide
     -   `https://api.mochimo.org`
     -   `http://35.208.202.76:8080`
 
-2.  **Docker Setup**:
-
-    Docker setup is currently a work in progress.
-
-3.  **Manual Setup (Local Node)**:
+2.  **Manual Setup (Local Node)**:
 
     To connect to a local Mochimo node:
 
@@ -49,6 +45,10 @@ A Rosetta API implementation for the Mochimo blockchain. This middleware provide
         ```
 
         For more configuration options, see the [Command Line Flags](#command-line-flags) section.
+
+3.  **Docker Setup**:
+
+    Docker setup is currently a work in progress. Feel free to contribute :)
 
 ## API Endpoints
 
@@ -91,29 +91,36 @@ For detailed examples on how to use these endpoints, see our [Query Examples](.g
 -   `/call`
     -   `tag_resolve`: Resolve tag to address
 
+### Indexer Endpoints (Optional)
+
+These endpoints are available if the indexer is enabled.
+
+-   `/search/transactions` - Search for transactions with various filters (requires indexer)
+
 ## Configuration
 
 ### Command Line Flags
 
-| Flag               | Type   | Default                     | Description                                                    |
-| :----------------- | :----- | :-------------------------- | :------------------------------------------------------------- |
-| `-settings`         | string | "interface_settings.json"   | Path to interface settings file                                |
-| `-tfile`           | string | "mochimo/bin/d/tfile.dat"   | Path to node's tfile.dat file                                 |
-| `-fp`               | float  | 0.4                         | Lower percentile of fees from recent blocks                    |
-| `-refresh_interval` | duration | 5s                          | Sync refresh interval in seconds                               |
-| `-ll`               | int    | 5                           | Log level (1-5, Least to most verbose)                         |
-| `-solo`             | string | ""                          | Single node IP bypass (e.g., "0.0.0.0")                        |
-| `-p`                | int    | 8080                        | HTTP port                                                      |
-| `-ptls`             | int    | 8443                        | HTTPS port                                                     |
-| `-online`           | bool   | true                        | Run in online mode                                             |
-| `-cert`             | string | ""                          | Path to SSL certificate file                                   |
-| `-key`              | string | ""                          | Path to SSL private key file                                   |
-| `-indexer`          | bool   | false                       | Enable the indexer                                             |
-| `-dbh`              | string | "localhost"                 | Indexer host                                                   |
-| `-dbp`              | int    | 3306                        | Indexer port                                                   |
-| `-dbu`              | string | "root"                      | Indexer user                                                   |
-| `-dbpw`             | string | ""                          | Indexer password                                               |
-| `-dbdb`             | string | "mochimo"                   | Indexer database                                               |
+| Flag               | Type     | Default                     | Description                                                                 |
+| :----------------- | :------- | :-------------------------- | :-------------------------------------------------------------------------- |
+| `-settings`         | string   | "interface_settings.json"   | Path to interface settings file                                             |
+| `-tfile`           | string   | "mochimo/bin/d/tfile.dat"   | Path to node's tfile.dat file                                             |
+| `-txclean`         | string   | "mochimo/bin/d/txclean.dat" | Path to node's txclean.dat file                                           |
+| `-fp`               | float    | 0.4                         | Lower percentile of fees from recent blocks                                 |
+| `-refresh_interval` | duration | 5s                          | Sync refresh interval in seconds                                            |
+| `-ll`               | int      | 5                           | Log level (1-5, Least to most verbose)                                     |
+| `-solo`             | string   | ""                          | Single node IP bypass (e.g., "0.0.0.0")                                    |
+| `-p`                | int      | 8080                        | HTTP port                                                                 |
+| `-ptls`             | int      | 8443                        | HTTPS port                                                                |
+| `-online`           | bool     | true                        | Run in online mode                                                        |
+| `-cert`             | string   | ""                          | Path to SSL certificate file                                              |
+| `-key`              | string   | ""                          | Path to SSL private key file                                              |
+| `-indexer`          | bool     | false                       | Enable the indexer                                                        |
+| `-dbh`              | string   | "localhost"                 | Indexer host                                                              |
+| `-dbp`              | int      | 3306                        | Indexer port                                                              |
+| `-dbu`              | string   | "root"                      | Indexer user                                                              |
+| `-dbpw`             | string   | ""                          | Indexer password                                                          |
+| `-dbdb`             | string   | "mochimo"                   | Indexer database                                                          |
 
 ### Environment Variables
 
@@ -124,19 +131,7 @@ For detailed examples on how to use these endpoints, see our [Query Examples](.g
 
 Enable HTTPS using either method:
 
-1.  Command line flags:
-
-    ```
-    -cert string      Path to SSL certificate file
-    -key string       Path to SSL private key file
-    ```
-
-2.  Environment variables:
-
-    -   `MCM_CERT_FILE`: Path to SSL certificate
-    -   `MCM_KEY_FILE`: Path to SSL private key
-
-3.  Using Certbot:
+1.  **Obtaining SSL Certificates (Optional)**:
 
     Certbot can be used to automatically obtain and renew SSL certificates from Let's Encrypt. Follow these steps to set up Certbot:
 
@@ -153,13 +148,6 @@ Enable HTTPS using either method:
         sudo certbot certonly --standalone -d yourdomain.com
         ```
 
-    -   Configure the paths to the obtained certificate and key in your environment variables or command line flags:
-
-        ```bash
-        export MCM_CERT_FILE=/etc/letsencrypt/live/yourdomain.com/fullchain.pem
-        export MCM_KEY_FILE=/etc/letsencrypt/live/yourdomain.com/privkey.pem
-        ```
-
     -   Set up a cron job to renew the certificate automatically:
 
         ```bash
@@ -172,6 +160,29 @@ Enable HTTPS using either method:
         0 12 * * * /usr/bin/certbot renew --quiet
         ```
 
+2.  **Configuring HTTPS**:
+
+    Provide the API the paths to the certificate and key using either command line flags or environment variables:  
+    
+      **Option A: Command Line Flags**
+
+      ```
+      -cert string      Path to SSL certificate file
+      -key string       Path to SSL private key file
+      ```
+
+      **Option B: Environment Variables**
+
+      -   `MCM_CERT_FILE`: Path to SSL certificate (alternative to `-cert` flag)
+      -   `MCM_KEY_FILE`: Path to SSL private key (alternative to `-key` flag)
+
+      Example:
+
+      ```bash
+      export MCM_CERT_FILE=/etc/letsencrypt/live/yourdomain.com/fullchain.pem
+      export MCM_KEY_FILE=/etc/letsencrypt/live/yourdomain.com/privkey.pem
+      ```
+
 ## Indexer Setup
 
 To enable the indexer, you need to configure the database connection and enable the indexer flag.
@@ -181,7 +192,7 @@ To enable the indexer, you need to configure the database connection and enable 
     -   Ensure you have a MySQL or MariaDB database server running.
     -   Create a database named `mochimo` (or specify a different name using the `-dbdb` flag).
     -   Create a user with the necessary privileges to access the database (or use the root user, but it's not recommended for production).
-    -   **Important**: Generate the necessary tables in your database by using the `indexer/TABLE_SCHEMA.sql` file. This file contains the SQL schema required for the indexer to function correctly.
+    -   **Important**: Generate the necessary tables in your database by using the [TABLE_SCHEMA.sql](indexer/TABLE_SCHEMA.sql) file. This file contains the SQL schema required for the indexer to function correctly.
 
 2.  **Configuration**:
 
@@ -209,6 +220,7 @@ To enable the indexer, you need to configure the database connection and enable 
 -   Currency Symbol: MCM
 -   Decimals: 9 (1 MCM = 10^9 nanoMCM)
 -   Block Sync: Requires `mochimo/bin/d/tfile.dat` access (if no other path is specified in the flags)
+-   Mempool Endpoint: Requires access to `mochimo/bin/d/txclean.dat`
 -   Node Communication: Local node on specified IP/port
 
 ## Address Types

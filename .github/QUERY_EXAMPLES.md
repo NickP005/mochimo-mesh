@@ -23,6 +23,7 @@ Besides the default endpoint `https://api.mochimo.org`, you can also use the fol
 - [Block Transaction](#block-transaction)
 - [Account Balance](#account-balance)
 - [Call: Resolve Tag](#call-resolve-tag)
+- [Search Transactions](#search-transactions)
 
 ## Network Status
 Get current network status:
@@ -628,4 +629,3 @@ curl -X POST https://api.mochimo.org/search/transactions \
       "hash": "0x8c83f6b6b53ad70959016dbe08da2238ff9c6925980a9018cde8b28f454cf053"
     }
   }'
-```
