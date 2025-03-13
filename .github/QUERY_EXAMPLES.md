@@ -4,6 +4,15 @@
 
 ---
 
+## Public Endpoints
+
+Besides the default endpoint `https://api.mochimo.org`, you can also use the following endpoints:
+
+- `http://35.208.202.76:8080`
+- `http://localhost:8080` (requires [manual setup](https://github.com/NickP005/mochimo-mesh/blob/3.0/README.md))
+
+---
+
 ## Overview
 - [Network Status](#network-status)
 - [Network Options](#network-options)
@@ -18,7 +27,7 @@
 ## Network Status
 Get current network status:
 ```bash
-curl -X POST http://api-aus.mochimo.org:8080/network/status \
+curl -X POST https://api.mochimo.org/network/status \
   -H "Content-Type: application/json" \
   -d '{
     "network_identifier": {
@@ -54,7 +63,7 @@ Sample Response:
 ## Network Options
 Query network options:
 ```bash
-curl -X POST http://api-aus.mochimo.org:8080/network/options \
+curl -X POST https://api.mochimo.org/network/options \
   -H "Content-Type: application/json" \
   -d '{
     "network_identifier": {
@@ -103,7 +112,7 @@ Sample Response:
 ## Mempool
 List mempool transactions:
 ```bash
-curl -X POST http://api-aus.mochimo.org:8080/mempool \
+curl -X POST https://api.mochimo.org/mempool \
   -H "Content-Type: application/json" \
   -d '{
     "network_identifier": {
@@ -128,7 +137,7 @@ curl -X POST http://api-aus.mochimo.org:8080/mempool \
 ## Mempool Transaction
 Query a specific mempool transaction:
 ```bash
-curl -X POST http://api-aus.mochimo.org:8080/mempool/transaction \
+curl -X POST https://api.mochimo.org/mempool/transaction \
   -H "Content-Type: application/json" \
   -d '{
     "network_identifier": {
@@ -195,7 +204,7 @@ curl -X POST http://api-aus.mochimo.org:8080/mempool/transaction \
 ## Construction Derive
 Derive an address from a public key:
 ```bash
-curl -X POST http://api-aus.mochimo.org:8080/construction/derive \
+curl -X POST https://api.mochimo.org/construction/derive \
   -H "Content-Type: application/json" \
   -d '{
     "network_identifier": {
@@ -217,7 +226,7 @@ Query a block by index or hash:
 
 ### By index
 ```bash
-curl -X POST http://api-aus.mochimo.org:8080/block \
+curl -X POST https://api.mochimo.org/block \
   -H "Content-Type: application/json" \
   -d '{
     "network_identifier": {
@@ -450,7 +459,7 @@ Sample Response:
 
 ### By hash
 ```bash
-curl -X POST http://api-aus.mochimo.org:8080/block \
+curl -X POST https://api.mochimo.org/block \
   -H "Content-Type: application/json" \
   -d '{
     "network_identifier": {
@@ -468,7 +477,7 @@ curl -X POST http://api-aus.mochimo.org:8080/block \
 ## Block Transaction
 Get transaction details within a block:
 ```bash
-curl -X POST http://api-aus.mochimo.org:8080/block/transaction \
+curl -X POST https://api.mochimo.org/block/transaction \
   -H "Content-Type: application/json" \
   -d '{
     "network_identifier": {
@@ -490,7 +499,7 @@ curl -X POST http://api-aus.mochimo.org:8080/block/transaction \
 ## Account Balance
 Query account balance:
 ```bash
-curl -X POST http://api-aus.mochimo.org:8080/account/balance \
+curl -X POST https://api.mochimo.org/account/balance \
   -H "Content-Type: application/json" \
   -d '{
     "network_identifier": {
@@ -524,7 +533,7 @@ Sample Response:
 ## Call: Resolve Tag
 Invoke the call endpoint to resolve a tag:
 ```bash
-curl -X POST http://api-aus.mochimo.org:8080/call \
+curl -X POST https://api.mochimo.org/call \
   -H "Content-Type: application/json" \
   -d '{
     "network_identifier": {
@@ -554,7 +563,7 @@ Search for transactions with various filters:
 
 ### Search by Account Address
 ```bash
-curl -X POST http://api-aus.mochimo.org:8080/search/transactions \
+curl -X POST https://api.mochimo.org/search/transactions \
   -H "Content-Type: application/json" \
   -d '{
     "network_identifier": {
@@ -593,7 +602,7 @@ This would:
 
 ### Search by Block Index
 ```bash
-curl -X POST http://api-aus.mochimo.org:8080/search/transactions \
+curl -X POST https://api.mochimo.org/search/transactions \
   -H "Content-Type: application/json" \
   -d '{
     "network_identifier": {
@@ -608,7 +617,7 @@ curl -X POST http://api-aus.mochimo.org:8080/search/transactions \
 
 ### Search by Transaction Hash
 ```bash
-curl -X POST http://api-aus.mochimo.org:8080/search/transactions \
+curl -X POST https://api.mochimo.org/search/transactions \
   -H "Content-Type: application/json" \
   -d '{
     "network_identifier": {
