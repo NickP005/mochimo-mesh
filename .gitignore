@@ -1,5 +1,7 @@
 mochimomesh.exe
 mochimomesh
+mesh
+mesh.exe
 
 # historical directory bloat
 node_modules/

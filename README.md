@@ -4,7 +4,9 @@
 ![Mochimo](https://img.shields.io/badge/Mochimo-v3.0.2-green)
 ![Rosetta](https://img.shields.io/badge/Rosetta-v1.4.13-orange)
 
-A Rosetta API implementation for the Mochimo blockchain. This middleware provides standardized blockchain interaction via the Rosetta protocol.
+![Mesh API](.github/started-correctly.png)
+
+The official Mochimo API, following the Rosetta standard, for interacting with the Mochimo blockchain.
 
 ## Quick Start
 
@@ -33,8 +35,12 @@ A Rosetta API implementation for the Mochimo blockchain. This middleware provide
         git clone https://github.com/mochimodev/mochimo mochimo/
         cd mochimo/
         make mochimo
+        cd bin/
+        ./gomochi -d # Consider running the node in a separate screen or service
         cd ..
         ```
+
+        For more accurate and complex configuration, follow the guide at [github.com/mochimodev/mochimo](https://github.com/mochimodev/mochimo). These processes should ideally be run as a service.
 
     3.  Run:
 
@@ -59,37 +65,38 @@ For detailed examples on how to use these endpoints, see our [Query Examples](.g
 ### Network
 
 -   `/network/list` - List supported networks
--   `/network/status` - Get chain status
+-   `/network/status` - Get chain status (*)
 -   `/network/options` - Get network options
 
 ### Account
 
--   `/account/balance` - Get address balance
+-   `/account/balance` - Get address balance (*)
     -   Address format: "0x" + hex string
 
 ### Block
 
--   `/block` - Get block by number or hash
--   `/block/transaction` - Get transaction details
+-   `/block` - Get block by number or hash (*)
+-   `/block/transaction` - Get transaction details (*)
 
 ### Mempool
 
--   `/mempool` - List pending transactions' id
--   `/mempool/transaction` - Get pending transactison
+-   `/mempool` - List pending transactions' id (*)
+-   `/mempool/transaction` - Get pending transactison (*)
 
 ### Construction
 
 -   `/construction/derive` - Derive address from public key
 -   `/construction/preprocess` - Prepare transaction
--   `/construction/metadata` - Get transaction metadata
--   `/construction/payloads` - Create unsigned transaction
+-   `/construction/metadata` - Get transaction metadata (*)
+-   `/construction/payloads` - Create unsigned transaction (*)
 -   `/construction/combine` - Add signatures
--   `/construction/submit` - Submit transaction
+-   `/construction/submit` - Submit transaction (*)
 
 ### Custom Methods
 
--   `/call`
-    -   `tag_resolve`: Resolve tag to address
+-   `/call` - tag_resolve: Resolve tag to address (*)
+
+(*) Requires online mode (-online flag set to true, as default)
 
 ### Indexer Endpoints (Optional)
 
