@@ -112,6 +112,13 @@ func searchTransactionsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Search transactions
+	// Check if INDEXER_DB is initialized
+	if INDEXER_DB == nil {
+		mlog(3, "§bsearchTransactionsHandler(): §4Indexer database not initialized")
+		giveError(w, ErrInternalError)
+		return
+	}
+
 	txs, totalCount, nextOffset, err := INDEXER_DB.SearchTransactions(
 		req.MaxBlock,
 		offset,

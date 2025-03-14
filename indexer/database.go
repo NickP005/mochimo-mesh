@@ -53,6 +53,11 @@ func (d *Database) Close() error {
 	return d.db.Close()
 }
 
+// Ping verifies if the database connection is still alive
+func (d *Database) Ping() error {
+	return d.db.Ping()
+}
+
 // Constants for lookup table values
 const (
 	BlockTypeGenesis  = 1

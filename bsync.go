@@ -31,6 +31,7 @@ func Init() {
 		// Start the indexer
 
 		if Globals.EnableIndexer {
+			Globals.EnableIndexer = false
 			go func() {
 				// Create database
 				db, err := indexer.NewDatabase(indexer.DatabaseConfig{
@@ -46,6 +47,7 @@ func Init() {
 					return
 				}
 				INDEXER_DB = db
+				Globals.EnableIndexer = true
 
 				mlog(5, "§bInit(): §7Indexer database created")
 			}()
@@ -227,6 +229,18 @@ func RefreshSync() error {
 	// Update the indexer
 	if Globals.EnableIndexer && (Globals.LatestBlockNum&0xFF) != 0 {
 		go func() {
+			// Check if INDEXER_DB is initialized and the connection is active
+			if INDEXER_DB == nil {
+				mlog(3, "§bRefreshSync(): §4Indexer database not initialized, skipping block push")
+				return
+			}
+
+			err := INDEXER_DB.Ping()
+			if err != nil {
+				mlog(3, "§bRefreshSync(): §4Indexer database connection is not active, skipping block push: §c%s", err)
+				return
+			}
+
 			mlog(5, "§bRefreshSync(): §7Querying block §e%d§7 data for indexer", Globals.LatestBlockNum)
 			block, err := go_mcminterface.QueryBlockFromNumber(0)
 			if err != nil {

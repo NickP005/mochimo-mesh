@@ -18,8 +18,8 @@ var Constants = ConstantType{
 		MiddlewareVersion string `json:"middleware_version"`
 	}{
 		RosettaVersion:    "1.4.13",
-		NodeVersion:       "3.0.2",
-		MiddlewareVersion: "1.3.0",
+		NodeVersion:       "3.0.3",
+		MiddlewareVersion: "1.3.1",
 	},
 }
 
