@@ -9,7 +9,7 @@ import (
 	"github.com/NickP005/go_mcminterface"
 )
 
-// func PushBlock(block *mcminterface.Block) {
+var GetBlockByHexHash func(hexHash string) (go_mcminterface.Block, error)
 
 func (d *Database) PushBlock(block go_mcminterface.Block) {
 	var blockType uint16
@@ -55,6 +55,22 @@ func (d *Database) PushBlock(block go_mcminterface.Block) {
 		return
 	}
 
+	// If a block with the same number already exists, update their status to orphaned
+	exist_same_height, err := d.GetBlocksByNumber(blockMetadata.BlockHeight)
+	if err != nil {
+		mlog(3, "§bIndexer.PushBlock(): §4Error getting blocks: §c%s", err)
+		return
+	}
+	for _, existing_block := range exist_same_height {
+		if existing_block.Status != StatusTypeSplit {
+			err := d.UpdateBlockStatus(int64(existing_block.ID), StatusTypeOrphaned)
+			if err != nil {
+				mlog(3, "§bIndexer.PushBlock(): §4Error updating block status: §c%s", err)
+				return
+			}
+		}
+	}
+
 	var blockID int64
 	if existing == nil {
 		var err error
@@ -96,6 +112,113 @@ func (d *Database) PushBlock(block go_mcminterface.Block) {
 			neogenesisBlock := go_mcminterface.CreateNeogenesisBlock(blockMetadata.BlockHeight)
 			INDEXER_DB.PushBlock(neogenesisBlock)
 		}*/
+
+	// Check that the previous block is in the database
+	if blockMetadata.BlockHeight > 0 {
+		mlog(4, "§bIndexer.PushBlock(): §7Checking previous block with hash §9%s", blockMetadata.ParentHash)
+		prevBlock, err := d.GetBlockByHash(blockMetadata.ParentHash)
+		if err != nil {
+			mlog(3, "§bIndexer.PushBlock(): §4Error getting previous block: §c%s", err)
+			return
+		}
+
+		if prevBlock == nil {
+			mlog(3, "§bIndexer.PushBlock(): §9Previous block not found in database, attempting to download")
+			// Try to download the block up to 3 times
+			var downloadedBlock go_mcminterface.Block
+			var downloadErr error
+			for i := 0; i < 3; i++ {
+				downloadedBlock, downloadErr = GetBlockByHexHash(blockMetadata.ParentHash)
+				if downloadErr == nil {
+					break
+				}
+				mlog(3, "§bIndexer.PushBlock(): §4Attempt %d failed to download block: §c%s", i+1, downloadErr)
+			}
+
+			if downloadErr == nil {
+				mlog(3, "§bIndexer.PushBlock(): §2Successfully downloaded previous block, pushing to database")
+				// Process the downloaded block recursively
+				d.PushBlock(downloadedBlock)
+			} else {
+				mlog(2, "§bIndexer.PushBlock(): §4Failed to download previous block after 3 attempts")
+			}
+		} else if prevBlock.Status != StatusTypeAccepted {
+			mlog(3, "§bIndexer.PushBlock(): §9Previous block found but not accepted, updating status")
+			// Update the previous block's status to accepted
+			err := d.UpdateBlockStatus(int64(prevBlock.ID), StatusTypeAccepted)
+			if err != nil {
+				mlog(3, "§bIndexer.PushBlock(): §4Error updating previous block status: §c%s", err)
+				return
+			}
+
+			// Mark other blocks at the same height as split
+			prevBlocks, err := d.GetBlocksByNumber(prevBlock.BlockHeight)
+			if err != nil {
+				mlog(3, "§bIndexer.PushBlock(): §4Error getting blocks at height %d: §c%s", prevBlock.BlockHeight, err)
+				return
+			}
+
+			for _, otherBlock := range prevBlocks {
+				if otherBlock.ID != prevBlock.ID && otherBlock.Status != StatusTypeSplit {
+					err := d.UpdateBlockStatus(int64(otherBlock.ID), StatusTypeSplit)
+					if err != nil {
+						mlog(3, "§bIndexer.PushBlock(): §4Error updating other block status: §c%s", err)
+						return
+					}
+				}
+			}
+
+			// Recursively validate previous blocks in the chain
+			d.validatePreviousBlocks(prevBlock)
+		}
+	}
+}
+
+// validatePreviousBlocks ensures that all previous blocks in the chain are properly accepted
+func (d *Database) validatePreviousBlocks(block *BlockMetadata) {
+	if block.BlockHeight <= 0 {
+		return // Genesis block has no parent
+	}
+
+	prevBlock, err := d.GetBlockByHash(block.ParentHash)
+	if err != nil {
+		mlog(3, "§bIndexer.validatePreviousBlocks(): §4Error getting previous block: §c%s", err)
+		return
+	}
+
+	if prevBlock == nil {
+		mlog(3, "§bIndexer.validatePreviousBlocks(): §9Previous block not found in database, chain validation stopped")
+		return
+	}
+
+	if prevBlock.Status != StatusTypeAccepted {
+		mlog(3, "§bIndexer.validatePreviousBlocks(): §9Updating previous block status to accepted")
+		err := d.UpdateBlockStatus(int64(prevBlock.ID), StatusTypeAccepted)
+		if err != nil {
+			mlog(3, "§bIndexer.validatePreviousBlocks(): §4Error updating previous block status: §c%s", err)
+			return
+		}
+
+		// Mark other blocks at the same height as split
+		prevBlocks, err := d.GetBlocksByNumber(prevBlock.BlockHeight)
+		if err != nil {
+			mlog(3, "§bIndexer.validatePreviousBlocks(): §4Error getting blocks at height %d: §c%s", prevBlock.BlockHeight, err)
+			return
+		}
+
+		for _, otherBlock := range prevBlocks {
+			if otherBlock.ID != prevBlock.ID && otherBlock.Status != StatusTypeSplit {
+				err := d.UpdateBlockStatus(int64(otherBlock.ID), StatusTypeSplit)
+				if err != nil {
+					mlog(3, "§bIndexer.validatePreviousBlocks(): §4Error updating other block status: §c%s", err)
+					return
+				}
+			}
+		}
+
+		// Continue validating the chain recursively
+		d.validatePreviousBlocks(prevBlock)
+	}
 }
 
 // BlockMetadata represents a block's metadata
@@ -181,6 +304,80 @@ func (d *Database) GetBlockByHash(hash string) (*BlockMetadata, error) {
 	}
 	block.ID = uint64(blockID.Int64)
 	block.Status = uint16(blockStatus.Int64)
+
+	return &block, nil
+}
+
+// GetBlocksByNumber retrieves all blocks at a given height
+func (d *Database) GetBlocksByNumber(height uint64) ([]*BlockMetadata, error) {
+	query := `
+		SELECT id, id_type, id_status, id_haiku, created_on,
+			   block_height, block_hash, parent_hash, miner_fee,
+			   file_size, entry_count, difficulty, duration
+		FROM block_metadata 
+		WHERE block_height = ?`
+
+	rows, err := d.db.Query(query, height)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var blocks []*BlockMetadata
+	for rows.Next() {
+		var block BlockMetadata
+		var haikuID sql.NullInt64
+
+		err := rows.Scan(
+			&block.ID, &block.Type, &block.Status, &haikuID, &block.CreatedOn,
+			&block.BlockHeight, &block.BlockHash, &block.ParentHash,
+			&block.MinerFee, &block.FileSize, &block.EntryCount,
+			&block.Difficulty, &block.Duration)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if haikuID.Valid {
+			block.HaikuID = &haikuID.Int64
+		}
+
+		blocks = append(blocks, &block)
+	}
+
+	return blocks, nil
+}
+
+// GetBlockByNumber retrieves a single block at a given height (prioritizing accepted blocks)
+func (d *Database) GetBlockByNumber(height uint64) (*BlockMetadata, error) {
+	query := `
+		SELECT id, id_type, id_status, id_haiku, created_on,
+			   block_height, block_hash, parent_hash, miner_fee,
+			   file_size, entry_count, difficulty, duration
+		FROM block_metadata 
+		WHERE block_height = ?
+		ORDER BY id_status ASC
+		LIMIT 1`
+
+	var block BlockMetadata
+	var haikuID sql.NullInt64
+
+	err := d.db.QueryRow(query, height).Scan(
+		&block.ID, &block.Type, &block.Status, &haikuID, &block.CreatedOn,
+		&block.BlockHeight, &block.BlockHash, &block.ParentHash,
+		&block.MinerFee, &block.FileSize, &block.EntryCount,
+		&block.Difficulty, &block.Duration)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if haikuID.Valid {
+		block.HaikuID = &haikuID.Int64
+	}
 
 	return &block, nil
 }

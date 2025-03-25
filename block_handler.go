@@ -100,6 +100,11 @@ func getBlock(blockIdentifier BlockIdentifier) (Block, error) {
 	return block, nil
 }
 
+// GetBlockByHexHash exports the getBlockByHexHash function to be used by other packages
+func GetBlockByHexHash(hexHash string) (go_mcminterface.Block, error) {
+	return getBlockByHexHash(hexHash)
+}
+
 func getBlockByHexHash(hexHash string) (go_mcminterface.Block, error) {
 	blockData, err := getBlockInDataFolder(hexHash)
 	if err != nil {

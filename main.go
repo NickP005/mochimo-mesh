@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	"mochimo-mesh/indexer"
+
 	"github.com/NickP005/go_mcminterface"
 	"github.com/gorilla/mux"
 )
@@ -69,6 +71,11 @@ func main() {
 		Init()
 	} else {
 		mlog(1, "§bmain(): §2Running in offline mode!")
+	}
+
+	// Set the GetBlockByHexHash function in the indexer package
+	if Globals.EnableIndexer {
+		indexer.GetBlockByHexHash = GetBlockByHexHash
 	}
 
 	r := mux.NewRouter()
