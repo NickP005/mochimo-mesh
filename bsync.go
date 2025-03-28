@@ -162,16 +162,19 @@ func RefreshSync() error {
 		Globals.IsSynced = false
 		return error
 	}
-	same := latest_block == Globals.LatestBlockNum
-	if same {
-		mlog(5, "§bRefreshSync(): §7No new block number detected (still at §e%d§7)", latest_block)
-		Globals.LastSyncStage = "synchronized"
-		Globals.IsSynced = true
-		return nil
-	}
-	mlog(4, "§bRefreshSync(): §7New block number detected: §e%d", latest_block)
-	Globals.LastSyncStage = "synchronizing"
-	Globals.IsSynced = false
+	/*
+		same := latest_block == Globals.LatestBlockNum
+		if same {
+			mlog(5, "§bRefreshSync(): §7No new block number detected (still at §e%d§7)", latest_block)
+			Globals.LastSyncStage = "synchronized"
+			Globals.IsSynced = true
+			return nil
+		}
+
+		mlog(4, "§bRefreshSync(): §7New block number detected: §e%d", latest_block)
+		Globals.LastSyncStage = "synchronizing"
+		Globals.IsSynced = false
+	*/
 
 	// Set the hash of the latest block and the Solve Timestamp (Stime)
 	mlog(5, "§bRefreshSync(): §7Fetching latest block trailer")
@@ -181,6 +184,21 @@ func RefreshSync() error {
 		Globals.LastSyncStage = "latest trailer error"
 		return error
 	}
+
+	var same bool = latest_trailer.Bhash == Globals.LatestBlockHash
+	if same {
+		mlog(5, "§bRefreshSync(): §7No new block hash detected (still at §e%d§7)", latest_block)
+		Globals.LastSyncStage = "synchronized"
+		Globals.IsSynced = true
+		return nil
+	}
+
+	mlog(4, "§bRefreshSync(): §7New block hash detected: §e%d §7hash: §60x%s", latest_block, hex.EncodeToString(latest_trailer.Bhash[:]))
+	Globals.LastSyncStage = "synchronizing"
+	Globals.IsSynced = false
+
+	// Update the global status
+	Globals.LastSyncTime = uint64(time.Now().UnixMilli())
 	Globals.LatestBlockNum = latest_block
 	Globals.LatestBlockHash = latest_trailer.Bhash
 	Globals.CurrentBlockUnixMilli = uint64(binary.LittleEndian.Uint32(latest_trailer.Stime[:])) * 1000
@@ -197,10 +215,8 @@ func RefreshSync() error {
 		Globals.HashToBlockNumber[k] = v
 	}
 
-	Globals.LastSyncStage = "synchronized"
-	Globals.IsSynced = true
-
 	// get the last 10 minimum mining fees and set the suggested fee accordingly to SUGGESTED_FEE_PERC
+	Globals.LastSyncStage = "min fee"
 	minfees := make([]uint64, 0, 100)
 	minfee_map, error := readMinFeeMap(100, TFILE_PATH)
 	if error != nil {
@@ -226,6 +242,9 @@ func RefreshSync() error {
 		mlog(2, "§bRefreshSync(): §7Suggested fee set to §e%d §7being §e%d%% §7lower percentile", Globals.SuggestedFee, position+1)
 	}
 
+	Globals.LastSyncStage = "synchronized"
+	Globals.IsSynced = true
+
 	// Update the indexer
 	if Globals.EnableIndexer && (Globals.LatestBlockNum&0xFF) != 0 {
 		go func() {
@@ -234,7 +253,6 @@ func RefreshSync() error {
 				mlog(3, "§bRefreshSync(): §4Indexer database not initialized, skipping block push")
 				return
 			}
-
 			err := INDEXER_DB.Ping()
 			if err != nil {
 				mlog(3, "§bRefreshSync(): §4Indexer database connection is not active, skipping block push: §c%s", err)
@@ -242,7 +260,7 @@ func RefreshSync() error {
 			}
 
 			mlog(5, "§bRefreshSync(): §7Querying block §e%d§7 data for indexer", Globals.LatestBlockNum)
-			block, err := go_mcminterface.QueryBlockFromNumber(0)
+			block, err := go_mcminterface.QueryBlockFromNumber(Globals.LatestBlockNum)
 			if err != nil {
 				mlog(3, "§bRefreshSync(): §4Error querying block: §c%s", err)
 				return

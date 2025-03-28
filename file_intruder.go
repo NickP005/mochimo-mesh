@@ -146,11 +146,13 @@ func getBlockInDataFolder(bhash string) (go_mcminterface.Block, error) {
 
 func saveBlockInDataFolder(block go_mcminterface.Block) error {
 	// folder
+	mlog(5, "§bSaveBlockInDataFolder(): §7Saving block §e0x%s§7 to data folder", hex.EncodeToString(block.Trailer.Bhash[:]))
 	folder := "data/blocks/0x" + hex.EncodeToString(block.Trailer.Bhash[:]) + ".bc"
 
 	// open the file
 	file, err := os.Create(folder)
 	if err != nil {
+		mlog(3, "§bSaveBlockInDataFolder(): §4Error creating file: §c%s", err)
 		return err
 	}
 	defer file.Close()
@@ -158,6 +160,7 @@ func saveBlockInDataFolder(block go_mcminterface.Block) error {
 	// write the block bytes
 	_, err = file.Write(block.GetBytes())
 	if err != nil {
+		mlog(3, "§bSaveBlockInDataFolder(): §4Error writing block bytes: §c%s", err)
 		return err
 	}
 

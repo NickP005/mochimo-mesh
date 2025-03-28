@@ -48,65 +48,69 @@ func (d *Database) PushBlock(block go_mcminterface.Block) {
 		HaikuID:     nil, // Haiku ID will be set later if needed
 	}
 
-	// Make sure the block doesn't already exist
-	existing, err := d.GetBlockByHash(blockMetadata.BlockHash)
-	if err != nil {
-		mlog(3, "§bIndexer.PushBlock(): §4Error getting block: §c%s", err)
-		return
-	}
-
-	// If a block with the same number already exists, update their status to orphaned
+	// If a block with the same number already exists, update their status to SPLIT
 	exist_same_height, err := d.GetBlocksByNumber(blockMetadata.BlockHeight)
 	if err != nil {
 		mlog(3, "§bIndexer.PushBlock(): §4Error getting blocks: §c%s", err)
 		return
 	}
 	for _, existing_block := range exist_same_height {
-		if existing_block.Status != StatusTypeSplit {
-			err := d.UpdateBlockStatus(int64(existing_block.ID), StatusTypeOrphaned)
-			if err != nil {
-				mlog(3, "§bIndexer.PushBlock(): §4Error updating block status: §c%s", err)
-				return
-			}
+		err := d.UpdateBlockStatus(int64(existing_block.ID), StatusTypeSplit)
+		if err != nil {
+			mlog(3, "§bIndexer.PushBlock(): §4Error updating block status: §c%s", err)
+			return
 		}
 	}
 
-	var blockID int64
+	// Make sure this block isn't already in the database
+	existing, err := d.GetBlockByHash(blockMetadata.BlockHash)
+	if err != nil {
+		mlog(3, "§bIndexer.PushBlock(): §4Error getting block: §c%s", err)
+		return
+	}
+
 	if existing == nil {
 		var err error
+		var blockID int64
 		blockID, err = d.InsertBlock(blockMetadata)
 		if err != nil {
 			mlog(3, "§bIndexer.PushBlock(): §4Error inserting block: §c%s", err)
 			return
 		}
 		mlog(4, "§bIndexer.PushBlock(): §7Block inserted at id §9%d", blockID)
-	} else {
-		blockID = int64(existing.ID)
-	}
 
-	base58_miner_addr, _ := AddrTagToBase58(block.Header.Maddr[:])
-	miner_account_id, err := d.GetOrCreateAccount(&Account{
-		Type:    AccountTypeStandard,
-		Address: base58_miner_addr,
-	})
-	if err != nil {
-		mlog(3, "§bIndexer.PushBlock(): §4Error getting miner account: §c%s", err)
-		return
-	}
-
-	// Now push the transactions with block reference
-	for _, tx := range block.Body {
-		txHash := hex.EncodeToString(tx.GetID())
-		mlog(5, "§bIndexer.PushBlock(): §7Pushing transaction §9%s", txHash)
-		err := d.PushTransaction(tx, blockID, blockStatus, miner_account_id) // Pass blockID and status
+		// Get or create the miner's account
+		base58_miner_addr, _ := AddrTagToBase58(block.Header.Maddr[:])
+		miner_account_id, err := d.GetOrCreateAccount(&Account{
+			Type:    AccountTypeStandard,
+			Address: base58_miner_addr,
+		})
 		if err != nil {
-			mlog(3, "§bIndexer.PushBlock(): §4Error pushing transaction: §c%s", err)
+			mlog(3, "§bIndexer.PushBlock(): §4Error getting miner account: §c%s", err)
+			return
 		}
-	}
-	mlog(4, "§bIndexer.PushBlock(): §7Pushed §9%d §7transactions", len(block.Body))
 
-	// if the block is the one before neogenesis (multiple of 256), we automatically push a neogenesis
+		// Now push the transactions with block reference
+		for _, tx := range block.Body {
+			txHash := hex.EncodeToString(tx.GetID())
+			mlog(5, "§bIndexer.PushBlock(): §7Pushing transaction §9%s", txHash)
+			err := d.PushTransaction(tx, blockID, blockStatus, miner_account_id) // Pass blockID and status
+			if err != nil {
+				mlog(3, "§bIndexer.PushBlock(): §4Error pushing transaction: §c%s", err)
+			}
+		}
+		mlog(4, "§bIndexer.PushBlock(): §7Pushed §9%d §7transactions", len(block.Body))
+	} else {
+		// Set status to accepted
+		err := d.UpdateBlockStatus(int64(existing.ID), StatusTypeAccepted)
+		if err != nil {
+			mlog(3, "§bIndexer.PushBlock(): §4Error updating block status: §c%s", err)
+			return
+		}
+		mlog(4, "§bIndexer.PushBlock(): §7Block already exists, updated status to accepted")
+	}
 	/*
+		// if the block is the one before neogenesis (multiple of 256), we automatically push a neogenesis
 		if blockType == BlockTypeStandard && (blockMetadata.BlockHeight + 1)%256 == 0 {
 			mlog(4, "§bIndexer.PushBlock(): §7Pushing neogenesis block")
 			neogenesisBlock := go_mcminterface.CreateNeogenesisBlock(blockMetadata.BlockHeight)
@@ -114,63 +118,60 @@ func (d *Database) PushBlock(block go_mcminterface.Block) {
 		}*/
 
 	// Check that the previous block is in the database
-	if blockMetadata.BlockHeight > 0 {
-		mlog(4, "§bIndexer.PushBlock(): §7Checking previous block with hash §9%s", blockMetadata.ParentHash)
-		prevBlock, err := d.GetBlockByHash(blockMetadata.ParentHash)
+	mlog(4, "§bIndexer.PushBlock(): §7Checking parent block with hash §9%s", blockMetadata.ParentHash)
+	prevBlock, err := d.GetBlockByHash(blockMetadata.ParentHash)
+	if err != nil {
+		mlog(3, "§bIndexer.PushBlock(): §4Error getting previous block: §c%s", err)
+		return
+	}
+
+	if prevBlock == nil {
+		mlog(3, "§bIndexer.PushBlock(): §9Previous block not found in database, attempting to download")
+		// Try to download the block up to 3 times
+		var downloadedBlock go_mcminterface.Block
+		var downloadErr error
+		for i := 0; i < 3; i++ {
+			downloadedBlock, downloadErr = GetBlockByHexHash("0x" + blockMetadata.ParentHash)
+			if downloadErr == nil {
+				break
+			}
+			mlog(3, "§bIndexer.PushBlock(): §4Attempt %d failed to download block: §c%s", i+1, downloadErr)
+		}
+
+		if downloadErr == nil {
+			mlog(3, "§bIndexer.PushBlock(): §2Successfully downloaded previous block, pushing to database")
+			// Process the downloaded block recursively
+			d.PushBlock(downloadedBlock)
+		} else {
+			mlog(2, "§bIndexer.PushBlock(): §4Failed to download previous block after 3 attempts")
+		}
+	} else if prevBlock.Status != StatusTypeAccepted {
+		mlog(3, "§bIndexer.PushBlock(): §9Previous block found but not accepted, updating status")
+		// Update the previous block's status to accepted
+		err := d.UpdateBlockStatus(int64(prevBlock.ID), StatusTypeAccepted)
 		if err != nil {
-			mlog(3, "§bIndexer.PushBlock(): §4Error getting previous block: §c%s", err)
+			mlog(3, "§bIndexer.PushBlock(): §4Error updating previous block status: §c%s", err)
 			return
 		}
 
-		if prevBlock == nil {
-			mlog(3, "§bIndexer.PushBlock(): §9Previous block not found in database, attempting to download")
-			// Try to download the block up to 3 times
-			var downloadedBlock go_mcminterface.Block
-			var downloadErr error
-			for i := 0; i < 3; i++ {
-				downloadedBlock, downloadErr = GetBlockByHexHash(blockMetadata.ParentHash)
-				if downloadErr == nil {
-					break
-				}
-				mlog(3, "§bIndexer.PushBlock(): §4Attempt %d failed to download block: §c%s", i+1, downloadErr)
-			}
-
-			if downloadErr == nil {
-				mlog(3, "§bIndexer.PushBlock(): §2Successfully downloaded previous block, pushing to database")
-				// Process the downloaded block recursively
-				d.PushBlock(downloadedBlock)
-			} else {
-				mlog(2, "§bIndexer.PushBlock(): §4Failed to download previous block after 3 attempts")
-			}
-		} else if prevBlock.Status != StatusTypeAccepted {
-			mlog(3, "§bIndexer.PushBlock(): §9Previous block found but not accepted, updating status")
-			// Update the previous block's status to accepted
-			err := d.UpdateBlockStatus(int64(prevBlock.ID), StatusTypeAccepted)
-			if err != nil {
-				mlog(3, "§bIndexer.PushBlock(): §4Error updating previous block status: §c%s", err)
-				return
-			}
-
-			// Mark other blocks at the same height as split
-			prevBlocks, err := d.GetBlocksByNumber(prevBlock.BlockHeight)
-			if err != nil {
-				mlog(3, "§bIndexer.PushBlock(): §4Error getting blocks at height %d: §c%s", prevBlock.BlockHeight, err)
-				return
-			}
-
-			for _, otherBlock := range prevBlocks {
-				if otherBlock.ID != prevBlock.ID && otherBlock.Status != StatusTypeSplit {
-					err := d.UpdateBlockStatus(int64(otherBlock.ID), StatusTypeSplit)
-					if err != nil {
-						mlog(3, "§bIndexer.PushBlock(): §4Error updating other block status: §c%s", err)
-						return
-					}
-				}
-			}
-
-			// Recursively validate previous blocks in the chain
-			d.validatePreviousBlocks(prevBlock)
+		// Mark other blocks at the same height as ORPHAN
+		prevBlocks, err := d.GetBlocksByNumber(prevBlock.BlockHeight)
+		if err != nil {
+			mlog(3, "§bIndexer.PushBlock(): §4Error getting blocks at height %d: §c%s", prevBlock.BlockHeight, err)
+			return
 		}
+		for _, otherBlock := range prevBlocks {
+			if otherBlock.ID != prevBlock.ID && otherBlock.Status != StatusTypeOrphaned {
+				err := d.UpdateBlockStatus(int64(otherBlock.ID), StatusTypeOrphaned)
+				if err != nil {
+					mlog(3, "§bIndexer.PushBlock(): §4Error updating other block status: §c%s", err)
+					return
+				}
+			}
+		}
+
+		// Recursively validate previous blocks in the chain
+		d.validatePreviousBlocks(prevBlock)
 	}
 }
 

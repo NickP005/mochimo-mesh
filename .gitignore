@@ -3,6 +3,8 @@ mochimomesh
 mesh
 mesh.exe
 
+data/blocks/*
+
 # historical directory bloat
 node_modules/
 mochimo/
