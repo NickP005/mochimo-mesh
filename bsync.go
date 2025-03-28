@@ -87,7 +87,7 @@ func Sync() bool {
 	// Load the last 800 block hashes to block number map
 	mlog(5, "§bSync(): §7Reading latest §e800§7 blocks map from §8%s", TFILE_PATH)
 	Globals.LastSyncStage = "tfile map"
-	blockmap, err := readBlockMap(800, TFILE_PATH)
+	blockmap, err := readBlockMap(5000, TFILE_PATH)
 	if err != nil {
 		mlog(3, "§bSync(): §4Error reading block map: §c%s", err)
 		return false
@@ -213,6 +213,7 @@ func RefreshSync() error {
 	for k, v := range blockmap {
 		Globals.HashToBlockNumber[k] = v
 	}
+	PurgeBlockMap(uint32(latest_block - 10000))
 
 	// get the last 10 minimum mining fees and set the suggested fee accordingly to SUGGESTED_FEE_PERC
 	Globals.LastSyncStage = "min fee"
@@ -287,4 +288,13 @@ func getBTrailer(bnum uint32) (go_mcminterface.BTRAILER, error) {
 	}
 
 	return btrailers[0], nil
+}
+
+// PurgeBlockMap removes all the block hashes from the block map that are older than the given block number
+func PurgeBlockMap(blocknum uint32) {
+	for k, v := range Globals.HashToBlockNumber {
+		if v < blocknum {
+			delete(Globals.HashToBlockNumber, k)
+		}
+	}
 }

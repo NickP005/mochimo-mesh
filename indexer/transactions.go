@@ -32,23 +32,15 @@ type TransactionStatus struct {
 	FileOffset    int32
 }
 
-// InsertTransaction inserts a new transaction and its status
-func (d *Database) InsertTransaction(tx *TransactionMetadata, status *TransactionStatus) (int64, error) {
-	// Start transaction
-	dbTx, err := d.db.Begin()
-	if err != nil {
-		return 0, err
-	}
-	defer dbTx.Rollback()
-
-	// Insert transaction metadata
+// InsertTransactionMetadata inserts a new transaction metadata
+func (d *Database) InsertTransactionMetadata(tx *TransactionMetadata) (int64, error) {
 	query := `
 		INSERT INTO transaction_metadata (
 			id_type, id_dsa, created_on, transaction_id,
 			send_total, change_total, fee_total, block_to_live, payload_count
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
-	result, err := dbTx.Exec(query,
+	result, err := d.db.Exec(query,
 		tx.Type, tx.DSA, tx.CreatedOn, tx.TransactionID,
 		tx.SendTotal, tx.ChangeTotal, tx.FeeTotal,
 		tx.BlockToLive, tx.PayloadCount)
@@ -61,14 +53,45 @@ func (d *Database) InsertTransaction(tx *TransactionMetadata, status *Transactio
 		return 0, err
 	}
 
-	// Insert transaction status
-	query = `
-		INSERT INTO transaction_status (
-			id_block, id_status, id_transaction, file_offset
-		) VALUES (?, ?, ?, ?)`
+	return txID, nil
+}
 
-	_, err = dbTx.Exec(query,
-		status.BlockID, status.Status, txID, status.FileOffset)
+// InsertTransactionStatus inserts a new transaction status, ensuring no duplicates directly in SQL
+func (d *Database) InsertTransactionStatus(status *TransactionStatus) error {
+	query := `
+			INSERT IGNORE INTO transaction_status (
+				id_block, id_status, id_transaction, file_offset
+			) VALUES (?, ?, ?, ?)`
+
+	_, err := d.db.Exec(query,
+		status.BlockID, status.Status, status.TransactionID, status.FileOffset)
+	if err != nil {
+		return fmt.Errorf("error inserting transaction status: %w", err)
+	}
+
+	return nil
+}
+
+// InsertTransaction inserts a new transaction and its status
+func (d *Database) InsertTransaction(tx *TransactionMetadata, status *TransactionStatus) (int64, error) {
+	// Start transaction
+	dbTx, err := d.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer dbTx.Rollback()
+
+	// Insert transaction metadata
+	txID, err := d.InsertTransactionMetadata(tx)
+	if err != nil {
+		return 0, err
+	}
+
+	// Update status with the transaction ID
+	status.TransactionID = txID
+
+	// Insert transaction status
+	err = d.InsertTransactionStatus(status)
 	if err != nil {
 		return 0, err
 	}
@@ -111,11 +134,12 @@ func (d *Database) PushTransaction(tx go_mcminterface.TXENTRY, blockID int64, bl
 	if err != nil {
 		return fmt.Errorf("error checking existing transaction: %w", err)
 	}
-	if existing != nil {
-		// Transaction already exists, skip insertion
-		mlog(4, "§bPushTransaction(): §7Transaction §9%s §7already exists", txID)
-		return nil
-	}
+	/*
+		if existing != nil {
+			// Transaction already exists, skip insertion
+			mlog(4, "§bPushTransaction(): §7Transaction §9%s §7already exists", txID)
+			return nil
+		}*/
 
 	// Create transaction metadata
 	txMetadata := &TransactionMetadata{
@@ -130,17 +154,6 @@ func (d *Database) PushTransaction(tx go_mcminterface.TXENTRY, blockID int64, bl
 		PayloadCount:  int32(len(tx.GetDestinations())),
 	}
 
-	/*
-		// Calculate total send amount
-		for _, dest := range tx.GetDestinations() {
-			amount := binary.LittleEndian.Uint64(dest.Amount[:])
-			txMetadata.SendTotal += int64(amount)
-		}
-
-		// Calculate change amount
-		txMetadata.ChangeTotal = int64(tx.GetChangeTotal())
-	*/
-
 	// Modify transaction status to include block reference
 	txStatus := &TransactionStatus{
 		BlockID:    blockID,     // Use passed blockID
@@ -148,8 +161,21 @@ func (d *Database) PushTransaction(tx go_mcminterface.TXENTRY, blockID int64, bl
 		FileOffset: 0,
 	}
 
-	// Insert transaction and get its ID
-	dbTxID, err := d.InsertTransaction(txMetadata, txStatus)
+	if existing != nil {
+		// Insert a new status for this new block
+		err = d.InsertTransactionStatus(txStatus)
+		if err != nil {
+			return fmt.Errorf("error inserting transaction status: %w", err)
+		}
+
+		// Transaction already exists, skip insertion
+		mlog(4, "§bPushTransaction(): §7Transaction §9%s §7already exists", txID)
+		return nil
+	}
+
+	// If it doesn't exist, insert the transaction metadata and status and get its ID
+	var dbTxID int64
+	dbTxID, err = d.InsertTransaction(txMetadata, txStatus)
 	if err != nil {
 		return fmt.Errorf("error inserting transaction: %w", err)
 	}

@@ -130,12 +130,14 @@ func (d *Database) PushBlock(block go_mcminterface.Block) {
 		// Try to download the block up to 3 times
 		var downloadedBlock go_mcminterface.Block
 		var downloadErr error
-		for i := 0; i < 3; i++ {
+		for i := 0; i < 5; i++ {
 			downloadedBlock, downloadErr = GetBlockByHexHash("0x" + blockMetadata.ParentHash)
 			if downloadErr == nil {
 				break
 			}
-			mlog(3, "§bIndexer.PushBlock(): §4Attempt %d failed to download block: §c%s", i+1, downloadErr)
+			mlog(3, "§bIndexer.PushBlock(): §4Attempt %d failed to download block: §c%s§4. Trying again in 10 seconds.", i+1, downloadErr)
+			// sleep 5 seconds before retrying
+			time.Sleep(10 * time.Second)
 		}
 
 		if downloadErr == nil {
@@ -143,7 +145,7 @@ func (d *Database) PushBlock(block go_mcminterface.Block) {
 			// Process the downloaded block recursively
 			d.PushBlock(downloadedBlock)
 		} else {
-			mlog(2, "§bIndexer.PushBlock(): §4Failed to download previous block after 3 attempts")
+			mlog(2, "§bIndexer.PushBlock(): §4Failed to download previous block after 5 attempts")
 		}
 	} else if prevBlock.Status != StatusTypeAccepted {
 		mlog(3, "§bIndexer.PushBlock(): §9Previous block found but not accepted, updating status")
