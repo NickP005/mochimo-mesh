@@ -111,6 +111,7 @@ func main() {
 
 	if Globals.EnableIndexer {
 		r.HandleFunc("/search/transactions", searchTransactionsHandler).Methods("POST", "OPTIONS")
+		r.HandleFunc("/events/blocks", eventsBlocksHandler).Methods("POST", "OPTIONS")
 	}
 
 	elapsed := time.Since(start_time)

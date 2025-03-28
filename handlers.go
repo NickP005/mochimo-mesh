@@ -134,6 +134,7 @@ var (
 	ErrBlockNotFound        = APIError{6, "Block not found", true}
 	ErrWrongCurveType       = APIError{7, "Wrong curve type", false}
 	ErrInvalidAccountFormat = APIError{8, "Invalid account format", false}
+	ErrServiceUnavailable   = APIError{9, "Service unavailable", true}
 )
 
 func giveError(w http.ResponseWriter, err APIError) {

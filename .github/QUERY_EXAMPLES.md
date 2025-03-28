@@ -24,6 +24,7 @@ Besides the default endpoint `https://api.mochimo.org`, you can also use the fol
 - [Account Balance](#account-balance)
 - [Call: Resolve Tag](#call-resolve-tag)
 - [Search Transactions](#search-transactions)
+- [Events Blocks](#events-blocks)
 
 ## Network Status
 Get current network status:
@@ -629,3 +630,94 @@ curl -X POST https://api.mochimo.org/search/transactions \
       "hash": "0x8c83f6b6b53ad70959016dbe08da2238ff9c6925980a9018cde8b28f454cf053"
     }
   }'
+```
+
+---
+
+## Events Blocks
+Get a range of block events that indicate additions or removals from the blockchain:
+
+### Basic Request
+```bash
+curl -X POST https://api.mochimo.org/events/blocks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "network_identifier": {
+      "blockchain": "mochimo",
+      "network": "mainnet"
+    },
+    "limit": 10
+  }'
+```
+
+### With Offset (starting from specific sequence)
+```bash
+curl -X POST https://api.mochimo.org/events/blocks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "network_identifier": {
+      "blockchain": "mochimo",
+      "network": "mainnet"
+    },
+    "offset": 500000,
+    "limit": 5
+  }'
+```
+
+### Sample Response
+```json
+{
+  "max_sequence": 668405,
+  "events": [
+    {
+      "sequence": 668401,
+      "block_identifier": {
+        "index": 668401,
+        "hash": "0x12fb36a30bb8bfd20135bb1689032690f97255d46e86b61c3cf348963d4972be"
+      },
+      "type": "block_added"
+    },
+    {
+      "sequence": 668402,
+      "block_identifier": {
+        "index": 668402,
+        "hash": "0xaf1d9520bc545c8d0d02aa35667c129c3eb88f991f5fdbce55e41ea4bd9ef3e9"
+      },
+      "type": "block_added"
+    },
+    {
+      "sequence": 668403,
+      "block_identifier": {
+        "index": 668403,
+        "hash": "0xcc67c54e6dd234dc3a958e328715e7ce6591ee66b9549bcb03ded157c75e08eb"
+      },
+      "type": "block_added"
+    },
+    {
+      "sequence": 668404,
+      "block_identifier": {
+        "index": 668404,
+        "hash": "0x1d6bf111c461eb28da132083b89da33913298bde059c0e76b86312c4c8c63aae"
+      },
+      "type": "block_added"
+    },
+    {
+      "sequence": 668405,
+      "block_identifier": {
+        "index": 668405,
+        "hash": "0xa0960ecded5e127e800b92f4e673880fcaa168caea3b504bd28b1399cceebf30"
+      },
+      "type": "block_added"
+    }
+  ]
+}
+```
+
+The response contains:
+- `max_sequence`: The highest available sequence number (latest block)
+- `events`: An array of block events with each containing:
+  - `sequence`: Incremental identifier for the event
+  - `block_identifier`: The block index and hash
+  - `type`: Either "block_added" for new blocks or "block_removed" for orphaned/reorged blocks
+
+This endpoint is especially useful for applications that need to maintain synchronization with the blockchain without implementing their own block syncing logic. By tracking these events, clients can maintain an accurate view of the blockchain's state.
