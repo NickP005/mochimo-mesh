@@ -58,12 +58,28 @@ func (d *Database) InsertTransactionMetadata(tx *TransactionMetadata) (int64, er
 
 // InsertTransactionStatus inserts a new transaction status, ensuring no duplicates directly in SQL
 func (d *Database) InsertTransactionStatus(status *TransactionStatus) error {
-	query := `
-			INSERT IGNORE INTO transaction_status (
-				id_block, id_status, id_transaction, file_offset
-			) VALUES (?, ?, ?, ?)`
+	// First check if a status already exists for this transaction in this block
+	checkQuery := `
+		SELECT COUNT(*) FROM transaction_status 
+		WHERE id_transaction = ? AND id_block = ?`
 
-	_, err := d.db.Exec(query,
+	var count int
+	err := d.db.QueryRow(checkQuery, status.TransactionID, status.BlockID).Scan(&count)
+	if err != nil {
+		return fmt.Errorf("error checking existing transaction status: %w", err)
+	}
+
+	if count > 0 {
+		return nil // Status already exists, skip insertion
+	}
+
+	// If no existing status found, insert the new one
+	query := `
+		INSERT INTO transaction_status (
+			id_block, id_status, id_transaction, file_offset
+		) VALUES (?, ?, ?, ?)`
+
+	_, err = d.db.Exec(query,
 		status.BlockID, status.Status, status.TransactionID, status.FileOffset)
 	if err != nil {
 		return fmt.Errorf("error inserting transaction status: %w", err)
@@ -134,25 +150,6 @@ func (d *Database) PushTransaction(tx go_mcminterface.TXENTRY, blockID int64, bl
 	if err != nil {
 		return fmt.Errorf("error checking existing transaction: %w", err)
 	}
-	/*
-		if existing != nil {
-			// Transaction already exists, skip insertion
-			mlog(4, "§bPushTransaction(): §7Transaction §9%s §7already exists", txID)
-			return nil
-		}*/
-
-	// Create transaction metadata
-	txMetadata := &TransactionMetadata{
-		Type:          TransactionTypeStandard,
-		DSA:           DSATypeWOTS,
-		CreatedOn:     time.Now(),
-		TransactionID: txID,
-		SendTotal:     int64(tx.GetSendTotal()),   // Will be calculated from destinations
-		ChangeTotal:   int64(tx.GetChangeTotal()), // Will be set from change amount
-		FeeTotal:      int64(tx.GetFee()),
-		BlockToLive:   int64(tx.GetBlockToLive()),
-		PayloadCount:  int32(len(tx.GetDestinations())),
-	}
 
 	// Modify transaction status to include block reference
 	txStatus := &TransactionStatus{
@@ -174,6 +171,19 @@ func (d *Database) PushTransaction(tx go_mcminterface.TXENTRY, blockID int64, bl
 	}
 
 	// If it doesn't exist, insert the transaction metadata and status and get its ID
+	// Create transaction metadata
+	txMetadata := &TransactionMetadata{
+		Type:          TransactionTypeStandard,
+		DSA:           DSATypeWOTS,
+		CreatedOn:     time.Now(),
+		TransactionID: txID,
+		SendTotal:     int64(tx.GetSendTotal()),   // Will be calculated from destinations
+		ChangeTotal:   int64(tx.GetChangeTotal()), // Will be set from change amount
+		FeeTotal:      int64(tx.GetFee()),
+		BlockToLive:   int64(tx.GetBlockToLive()),
+		PayloadCount:  int32(len(tx.GetDestinations())),
+	}
+
 	var dbTxID int64
 	dbTxID, err = d.InsertTransaction(txMetadata, txStatus)
 	if err != nil {

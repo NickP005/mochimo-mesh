@@ -62,7 +62,7 @@ func (d *Database) PushBlock(block go_mcminterface.Block) {
 		}
 	}
 
-	// Make sure this block isn't already in the database
+	// Check if this block is already in the database
 	existing, err := d.GetBlockByHash(blockMetadata.BlockHash)
 	if err != nil {
 		mlog(3, "§bIndexer.PushBlock(): §4Error getting block: §c%s", err)
@@ -109,6 +109,7 @@ func (d *Database) PushBlock(block go_mcminterface.Block) {
 		}
 		mlog(4, "§bIndexer.PushBlock(): §7Block already exists, updated status to accepted")
 	}
+
 	/*
 		// if the block is the one before neogenesis (multiple of 256), we automatically push a neogenesis
 		if blockType == BlockTypeStandard && (blockMetadata.BlockHeight + 1)%256 == 0 {
