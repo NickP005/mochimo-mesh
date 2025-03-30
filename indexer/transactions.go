@@ -160,6 +160,7 @@ func (d *Database) PushTransaction(tx go_mcminterface.TXENTRY, blockID int64, bl
 
 	if existing != nil {
 		// Insert a new status for this new block
+		txStatus.TransactionID = existing.ID
 		err = d.InsertTransactionStatus(txStatus)
 		if err != nil {
 			return fmt.Errorf("error inserting transaction status: %w", err)
