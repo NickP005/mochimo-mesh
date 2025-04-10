@@ -80,28 +80,82 @@ Sample Response:
 {
   "version": {
     "rosetta_version": "1.4.13",
-    "node_version": "2.4.3",
-    "middleware_version": "1.1.2"
+    "node_version": "3.0.3",
+    "middleware_version": "1.4.6"
   },
   "allow": {
     "operation_statuses": [
-      { "status": "SUCCESS", "successful": true },
-      { "status": "PENDING", "successful": false },
-      { "status": "SPLIT", "successful": false },
-      { "status": "ORPHANED", "successful": false },
-      { "status": "UNKNOWN", "successful": false },
-      { "status": "FAILURE", "successful": false }
+      {
+        "status": "SUCCESS",
+        "successful": true
+      },
+      {
+        "status": "PENDING",
+        "successful": false
+      },
+      {
+        "status": "SPLIT",
+        "successful": false
+      },
+      {
+        "status": "ORPHANED",
+        "successful": false
+      },
+      {
+        "status": "FAILURE",
+        "successful": false
+      },
+      {
+        "status": "UNKNOWN",
+        "successful": false
+      }
     ],
-    "operation_types": ["TRANSFER", "REWARD", "FEE"],
+    "operation_types": [
+      "TRANSFER",
+      "REWARD",
+      "FEE"
+    ],
     "errors": [
-      { "code": 1, "message": "Invalid request", "retriable": false },
-      { "code": 2, "message": "Internal general error", "retriable": true },
-      { "code": 3, "message": "Transaction not found", "retriable": true },
-      { "code": 4, "message": "Account not found", "retriable": true },
-      { "code": 5, "message": "Wrong network identifier", "retriable": false },
-      { "code": 6, "message": "Block not found", "retriable": true },
-      { "code": 7, "message": "Wrong curve type", "retriable": false },
-      { "code": 8, "message": "Invalid account format", "retriable": false }
+      {
+        "code": 1,
+        "message": "Invalid request",
+        "retriable": false
+      },
+      {
+        "code": 2,
+        "message": "Internal general error",
+        "retriable": true
+      },
+      {
+        "code": 3,
+        "message": "Transaction not found",
+        "retriable": true
+      },
+      {
+        "code": 4,
+        "message": "Account not found",
+        "retriable": true
+      },
+      {
+        "code": 5,
+        "message": "Wrong network identifier",
+        "retriable": false
+      },
+      {
+        "code": 6,
+        "message": "Block not found",
+        "retriable": true
+      },
+      {
+        "code": 7,
+        "message": "Wrong curve type",
+        "retriable": false
+      },
+      {
+        "code": 8,
+        "message": "Invalid account format",
+        "retriable": false
+      }
     ],
     "mempool_coins": false,
     "transaction_hash_case": "lower_case"

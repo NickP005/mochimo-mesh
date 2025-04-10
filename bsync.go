@@ -22,6 +22,12 @@ var INDEXER_DB *indexer.Database
 func Init() {
 	// Start in another separate thread the syncer.
 	go func() {
+		// Call sync until it is successful
+		for !Sync() {
+			mlog(3, "§bInit(): §4Sync() failed§f (Node offline?), retrying in §9%d seconds", int(REFRESH_SYNC_INTERVAL.Seconds()))
+			time.Sleep(REFRESH_SYNC_INTERVAL)
+		}
+
 		// Start the indexer
 		if Globals.EnableIndexer {
 			Globals.EnableIndexer = false
@@ -44,12 +50,6 @@ func Init() {
 
 				mlog(5, "§bInit(): §7Indexer database created")
 			}()
-		}
-
-		// Call sync until it is successful
-		for !Sync() {
-			mlog(3, "§bInit(): §4Sync() failed§f (Node offline?), retrying in §9%d seconds", int(REFRESH_SYNC_INTERVAL.Seconds()))
-			time.Sleep(REFRESH_SYNC_INTERVAL)
 		}
 
 		ticker := time.NewTicker(REFRESH_SYNC_INTERVAL)
