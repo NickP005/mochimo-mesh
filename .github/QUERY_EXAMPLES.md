@@ -19,6 +19,7 @@ Besides the default endpoint `https://api.mochimo.org`, you can also use the fol
 - [Mempool](#mempool)
 - [Mempool Transaction](#mempool-transaction)
 - [Construction Derive](#construction-derive)
+- [Construction Submit](#construction-submit)
 - [Block](#block)
 - [Block Transaction](#block-transaction)
 - [Account Balance](#account-balance)
@@ -273,6 +274,32 @@ curl -X POST https://api.mochimo.org/construction/derive \
     },
     "metadata": {}
   }'
+```
+
+---
+
+## Construction Submit
+Submit a signed transaction to the network:
+```bash
+curl -X POST https://api.mochimo.org/construction/submit \
+  -H "Content-Type: application/json" \
+  -d '{
+    "network_identifier": {
+      "blockchain": "mochimo",
+      "network": "mainnet"
+    },
+    "signed_transaction": "<SIGNED_TRANSACTION_HEX>"
+  }'
+```
+
+### Sample Response
+```json
+{
+  "transaction_identifier": {
+    "hash": "0x8c83f6b6b53ad70959016dbe08da2238ff9c6925980a9018cde8b28f454cf053"
+  },
+  "metadata": {}
+}
 ```
 
 ---

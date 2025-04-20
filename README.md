@@ -1,6 +1,6 @@
 # Mochimo Mesh API v1.4.6
 
-![Version](https://img.shields.io/badge/Version-1.4.5-blue)
+![Version](https://img.shields.io/badge/Version-1.4.6-blue)
 ![Mochimo](https://img.shields.io/badge/Mochimo-v3.0.2-green)
 ![Rosetta](https://img.shields.io/badge/Rosetta-v1.4.13-orange)
 
@@ -103,6 +103,7 @@ For detailed examples on how to use these endpoints, see our [Query Examples](.g
 These endpoints are available if the indexer is enabled.
 
 -   `/search/transactions` - Search for transactions with various filters (requires indexer)
+-   `/events/blocks` - Track block additions and removals as sequenced events (requires indexer)
 
 ## Configuration
 
