@@ -16,10 +16,11 @@ var LEDGER_CACHE_REFRESH_INTERVAL time.Duration = 900 * time.Second // 15 minute
 
 // LedgerCache holds the cached ledger data and related information
 type LedgerCache struct {
-	Ledger          *go_mcminterface.Ledger
-	LastUpdated     time.Time
-	LastBlockNumber uint64
-	mu              sync.RWMutex
+	Ledger            *go_mcminterface.Ledger
+	LastUpdated       time.Time
+	LastBlockNumber   uint64
+	CirculatingSupply uint64 // Total circulating supply in nanoMCM
+	mu                sync.RWMutex
 }
 
 // Global ledger cache
@@ -41,10 +42,11 @@ type RichlistAccountBalance struct {
 
 // RichlistResponse is the response structure for the /stats/richlist endpoint
 type RichlistResponse struct {
-	BlockIdentifier BlockIdentifier          `json:"block_identifier"`
-	LastUpdated     string                   `json:"last_updated"`
-	Accounts        []RichlistAccountBalance `json:"accounts"`
-	TotalAccounts   uint64                   `json:"total_accounts"`
+	BlockIdentifier   BlockIdentifier          `json:"block_identifier"`
+	LastUpdated       string                   `json:"last_updated"`
+	Accounts          []RichlistAccountBalance `json:"accounts"`
+	TotalAccounts     uint64                   `json:"total_accounts"`
+	CirculatingSupply Amount                   `json:"circulating_supply"`
 }
 
 // BytesToHex converts a byte slice to a hex string
@@ -71,7 +73,13 @@ func RefreshLedgerCache() error {
 	// Sort ledger by balance for richlist
 	ledger.SortBalances()
 
-	mlog(3, "§bRefreshLedgerCache(): §2Ledger loaded successfully with §e%d§2 entries", ledger.Size)
+	// Calculate total circulating supply
+	var totalSupply uint64 = 0
+	for _, entry := range ledger.Entries {
+		totalSupply += entry.Balance
+	}
+
+	mlog(3, "§bRefreshLedgerCache(): §2Ledger loaded successfully with §e%d§2 entries, total supply: §e%d", ledger.Size, totalSupply)
 
 	// Update the global cache with a write lock
 	GlobalLedgerCache.mu.Lock()
@@ -80,6 +88,7 @@ func RefreshLedgerCache() error {
 	GlobalLedgerCache.Ledger = ledger
 	GlobalLedgerCache.LastUpdated = time.Now()
 	GlobalLedgerCache.LastBlockNumber = Globals.LatestBlockNum
+	GlobalLedgerCache.CirculatingSupply = totalSupply
 
 	return nil
 }
@@ -279,15 +288,22 @@ func richlistHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Format circulating supply as Amount in Mochimo
+	var circulatingSupply Amount = Amount{
+		Value:    fmt.Sprintf("%d", GlobalLedgerCache.CirculatingSupply),
+		Currency: MCMCurrency,
+	}
+
 	// Build response
 	response := RichlistResponse{
 		BlockIdentifier: BlockIdentifier{
 			Index: int(GlobalLedgerCache.LastBlockNumber),
 			Hash:  "0x" + BytesToHex(Globals.LatestBlockHash[:]),
 		},
-		LastUpdated:   GlobalLedgerCache.LastUpdated.Format(time.RFC3339),
-		Accounts:      accounts,
-		TotalAccounts: totalAccounts,
+		LastUpdated:       GlobalLedgerCache.LastUpdated.Format(time.RFC3339),
+		Accounts:          accounts,
+		TotalAccounts:     totalAccounts,
+		CirculatingSupply: circulatingSupply,
 	}
 
 	// Send response

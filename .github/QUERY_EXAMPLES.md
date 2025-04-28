@@ -830,7 +830,7 @@ curl -X POST https://api.mochimo.org/stats/richlist \
       "blockchain": "mochimo",
       "network": "mainnet"
     },
-    "ascending": false,
+    "ascending": true,
     "offset": 10,
     "limit": 20
   }'
@@ -843,43 +843,7 @@ Parameters:
 
 ### Sample Response
 ```json
-{
-  "block_identifier": {
-    "index": 668405,
-    "hash": "0xa0960ecded5e127e800b92f4e673880fcaa168caea3b504bd28b1399cceebf30"
-  },
-  "last_updated": "2023-08-15T14:30:45Z",
-  "accounts": [
-    {
-      "account_identifier": {
-        "address": "0x64dfe1e04a579de8ab4f15ae533a747c7edc0c4f"
-      },
-      "balance": {
-        "value": "12932222529",
-        "currency": { "symbol": "MCM", "decimals": 9 }
-      }
-    },
-    {
-      "account_identifier": {
-        "address": "0x8413d773b644cb4200ea119cc767632ec2828615"
-      },
-      "balance": {
-        "value": "9876543210",
-        "currency": { "symbol": "MCM", "decimals": 9 }
-      }
-    },
-    {
-      "account_identifier": {
-        "address": "0xc23b1314fec5d61a93d941b84f2dbd3e0c691535"
-      },
-      "balance": {
-        "value": "5432100000",
-        "currency": { "symbol": "MCM", "decimals": 9 }
-      }
-    }
-  ],
-  "total_accounts": 543261
-}
+{"block_identifier":{"index":718842,"hash":"0x5455627e8e3700d5cae0d87e81548d132ce31f80186b42a8552542592c8b8454"},"last_updated":"2025-04-28T13:04:57Z","accounts":[{"account_identifier":{"address":"0x1260887b0d3653f8ac255969cb4a607f006cf673"},"balance":{"value":"2086290504125984","currency":{"symbol":"MCM","decimals":9}}},{"account_identifier":{"address":"0x952f8b057e69056cb1f25e1d8438e7b2c55ee3fc"},"balance":{"value":"1029609391673246","currency":{"symbol":"MCM","decimals":9}}},{"account_identifier":{"address":"0x5d25f4d87dba25a6f1423a1794f584cce5b1839b"},"balance":{"value":"1000000989980501","currency":{"symbol":"MCM","decimals":9}}},{"account_identifier":{"address":"0x39292bf1c093cf75fa1fe0dfb35121347da76399"},"balance":{"value":"934968410937224","currency":{"symbol":"MCM","decimals":9}}},{"account_identifier":{"address":"0xbc7dfa37e5283271fba173954a13f56b6f35994b"},"balance":{"value":"814972999998501","currency":{"symbol":"MCM","decimals":9}}}],"total_accounts":20441}
 ```
 
 The response contains:
