@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -121,6 +122,11 @@ func richlistHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	mlog(3, "§brichlistHandler(): §7Processing richlist request - ascending: §e%v§7, offset: §e%v§7, limit: §e%v",
+		req.Ascending != nil && *req.Ascending,
+		req.Offset != nil,
+		req.Limit != nil)
+
 	// Check network identifier
 	if req.NetworkIdentifier.Blockchain != Constants.NetworkIdentifier.Blockchain ||
 		req.NetworkIdentifier.Network != Constants.NetworkIdentifier.Network {
@@ -157,9 +163,13 @@ func richlistHandler(w http.ResponseWriter, r *http.Request) {
 
 	ledger := GlobalLedgerCache.Ledger
 
+	// Debug ledger information
+	mlog(3, "§brichlistHandler(): §7Ledger info: Size=§e%d§7, IsBalanceSorted=§e%v§7, IsAddressSorted=§e%v",
+		ledger.Size, ledger.IsBalanceSorted, ledger.IsAddressSorted)
+
 	// Ensure ledger is sorted by balance
 	if !ledger.IsBalanceSorted {
-		mlog(4, "§brichlistHandler(): §7Ledger not sorted by balance, sorting now")
+		mlog(3, "§brichlistHandler(): §7Ledger not sorted by balance, sorting now")
 		GlobalLedgerCache.mu.RUnlock()
 		GlobalLedgerCache.mu.Lock()
 		ledger.SortBalances()
@@ -194,6 +204,8 @@ func richlistHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	mlog(3, "§brichlistHandler(): §7Using index range: start=§e%d§7, end=§e%d", startIndex, endIndex)
+
 	// Build accounts list
 	for i := startIndex; i < endIndex; i++ {
 		var index int64
@@ -206,15 +218,33 @@ func richlistHandler(w http.ResponseWriter, r *http.Request) {
 
 		entry := ledger.Entries[index]
 
-		// Extract only the first 20 bytes of the address (the address part)
-		addrHex := "0x" + BytesToHex(entry.Address[:20])
+		// Extract only the 20-byte address part (not the full address+pubkey)
+		// Mochimo addresses are 20 bytes for address + 32 bytes for pubkey = 52 bytes total
+		addrLen := len(entry.Address)
+		mlog(4, "§brichlistHandler(): §7Processing entry #%d - Address length: §e%d", index, addrLen)
+
+		// Use just the first 20 bytes for the address (tag)
+		var addrTag []byte
+		if addrLen >= 20 {
+			addrTag = entry.Address[:20]
+		} else {
+			mlog(2, "§brichlistHandler(): §4Invalid address length §e%d§4 for entry #%d", addrLen, index)
+			addrTag = entry.Address[:addrLen]
+		}
+
+		addrHex := "0x" + BytesToHex(addrTag)
+
+		// Format balance correctly as a string
+		balanceStr := fmt.Sprintf("%d", entry.Balance)
+
+		mlog(4, "§brichlistHandler(): §7Address: §e%s§7, Balance: §e%s", addrHex, balanceStr)
 
 		accounts = append(accounts, RichlistAccountBalance{
 			AccountIdentifier: AccountIdentifier{
 				Address: addrHex,
 			},
 			Balance: Amount{
-				Value:    formatUint64(entry.Balance),
+				Value:    balanceStr,
 				Currency: MCMCurrency,
 			},
 		})
@@ -234,9 +264,4 @@ func richlistHandler(w http.ResponseWriter, r *http.Request) {
 	// Send response
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
-}
-
-// Helper function to format uint64 as string
-func formatUint64(val uint64) string {
-	return json.Number(string(append([]byte(nil), []byte(string(val))...))).String()
 }
