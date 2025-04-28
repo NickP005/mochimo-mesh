@@ -18,7 +18,6 @@ type LedgerCache struct {
 	Ledger          *go_mcminterface.Ledger
 	LastUpdated     time.Time
 	LastBlockNumber uint64
-	LastBlockHash   [32]byte
 	mu              sync.RWMutex
 }
 
@@ -79,11 +78,7 @@ func RefreshLedgerCache() error {
 
 	GlobalLedgerCache.Ledger = ledger
 	GlobalLedgerCache.LastUpdated = time.Now()
-
-	// Get the block trailer for the block where the ledger was updated
-	// We use the latest block hash available when the ledger was loaded
 	GlobalLedgerCache.LastBlockNumber = Globals.LatestBlockNum
-	GlobalLedgerCache.LastBlockHash = Globals.LatestBlockHash
 
 	return nil
 }
@@ -101,9 +96,6 @@ func InitStatistics() {
 		err := RefreshLedgerCache()
 		if err != nil {
 			mlog(3, "§bInitStatistics(): §4Initial ledger cache refresh failed: §c%s", err)
-		} else {
-			mlog(2, "§bInitStatistics(): §2Initial ledger cache loaded with §e%d§2 accounts",
-				GlobalLedgerCache.Ledger.Size)
 		}
 
 		// Set up periodic refresh
@@ -114,9 +106,6 @@ func InitStatistics() {
 			err := RefreshLedgerCache()
 			if err != nil {
 				mlog(3, "§bInitStatistics(): §4Periodic ledger cache refresh failed: §c%s", err)
-			} else {
-				mlog(3, "§bInitStatistics(): §2Refreshed ledger cache with §e%d§2 accounts",
-					GlobalLedgerCache.Ledger.Size)
 			}
 		}
 	}()
@@ -131,8 +120,6 @@ func richlistHandler(w http.ResponseWriter, r *http.Request) {
 		giveError(w, ErrInvalidRequest)
 		return
 	}
-
-	mlog(4, "§brichlistHandler(): §7Processing richlist request")
 
 	// Check network identifier
 	if req.NetworkIdentifier.Blockchain != Constants.NetworkIdentifier.Blockchain ||
@@ -162,8 +149,8 @@ func richlistHandler(w http.ResponseWriter, r *http.Request) {
 	GlobalLedgerCache.mu.RLock()
 	defer GlobalLedgerCache.mu.RUnlock()
 
-	if GlobalLedgerCache.Ledger == nil || GlobalLedgerCache.Ledger.Size == 0 {
-		mlog(3, "§brichlistHandler(): §4Ledger cache not available or empty")
+	if GlobalLedgerCache.Ledger == nil {
+		mlog(3, "§brichlistHandler(): §4Ledger cache not available")
 		giveError(w, ErrServiceUnavailable)
 		return
 	}
@@ -183,8 +170,6 @@ func richlistHandler(w http.ResponseWriter, r *http.Request) {
 	// Get accounts based on sorting order, offset, and limit
 	accounts := make([]RichlistAccountBalance, 0, limit)
 	totalAccounts := uint64(ledger.Size)
-
-	mlog(5, "§brichlistHandler(): §7Total accounts in ledger: §e%d", totalAccounts)
 
 	// Determine start and end indices
 	var startIndex, endIndex int64
@@ -209,8 +194,6 @@ func richlistHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	mlog(5, "§brichlistHandler(): §7Using indices: start=§e%d§7, end=§e%d", startIndex, endIndex)
-
 	// Build accounts list
 	for i := startIndex; i < endIndex; i++ {
 		var index int64
@@ -223,8 +206,8 @@ func richlistHandler(w http.ResponseWriter, r *http.Request) {
 
 		entry := ledger.Entries[index]
 
-		// Convert address bytes to hex string
-		addrHex := "0x" + BytesToHex(entry.Address[:])
+		// Extract only the first 20 bytes of the address (the address part)
+		addrHex := "0x" + BytesToHex(entry.Address[:20])
 
 		accounts = append(accounts, RichlistAccountBalance{
 			AccountIdentifier: AccountIdentifier{
@@ -237,13 +220,11 @@ func richlistHandler(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	mlog(5, "§brichlistHandler(): §7Returning §e%d§7 accounts in response", len(accounts))
-
 	// Build response
 	response := RichlistResponse{
 		BlockIdentifier: BlockIdentifier{
 			Index: int(GlobalLedgerCache.LastBlockNumber),
-			Hash:  "0x" + BytesToHex(GlobalLedgerCache.LastBlockHash[:]),
+			Hash:  "0x" + BytesToHex(Globals.LatestBlockHash[:]),
 		},
 		LastUpdated:   GlobalLedgerCache.LastUpdated.Format(time.RFC3339),
 		Accounts:      accounts,
