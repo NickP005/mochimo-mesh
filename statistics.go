@@ -181,73 +181,102 @@ func richlistHandler(w http.ResponseWriter, r *http.Request) {
 	accounts := make([]RichlistAccountBalance, 0, limit)
 	totalAccounts := uint64(ledger.Size)
 
-	// Determine start and end indices
-	var startIndex, endIndex int64
+	// The ledger is sorted in descending order (highest balance first)
+	// So for ascending order (lowest first), we need to reverse our access approach
+
+	// Calculate start and end indices based on ascending/descending order
+	var startIdx, endIdx int64
 
 	if ascending {
-		// For ascending order, start from the beginning of the ledger
-		startIndex = offset
-		endIndex = offset + limit
-		if endIndex > int64(ledger.Size) {
-			endIndex = int64(ledger.Size)
+		// For ascending order, start from the end of the sorted list (low balances)
+		startIdx = int64(ledger.Size) - 1 - offset
+		endIdx = startIdx - limit + 1
+		if endIdx < 0 {
+			endIdx = 0
+		}
+
+		// Log the calculated indices
+		mlog(3, "§brichlistHandler(): §7Using index range (ascending): start=§e%d§7, end=§e%d", startIdx, endIdx)
+
+		// Traverse backwards through the ledger for ascending order
+		for i := startIdx; i >= endIdx; i-- {
+			entry := ledger.Entries[i]
+
+			// Extract only the 20-byte address part (not the full address+pubkey)
+			addrLen := len(entry.Address)
+			mlog(4, "§brichlistHandler(): §7Processing entry #%d - Address length: §e%d", i, addrLen)
+
+			// Use just the first 20 bytes for the address (tag)
+			var addrTag []byte
+			if addrLen >= 20 {
+				addrTag = entry.Address[:20]
+			} else {
+				mlog(2, "§brichlistHandler(): §4Invalid address length §e%d§4 for entry #%d", addrLen, i)
+				addrTag = entry.Address[:addrLen]
+			}
+
+			addrHex := "0x" + BytesToHex(addrTag)
+
+			// Format balance correctly as a string
+			balanceStr := fmt.Sprintf("%d", entry.Balance)
+
+			mlog(4, "§brichlistHandler(): §7Address: §e%s§7, Balance: §e%s", addrHex, balanceStr)
+
+			accounts = append(accounts, RichlistAccountBalance{
+				AccountIdentifier: AccountIdentifier{
+					Address: addrHex,
+				},
+				Balance: Amount{
+					Value:    balanceStr,
+					Currency: MCMCurrency,
+				},
+			})
 		}
 	} else {
-		// For descending order (default), start from the end of the ledger
-		startIndex = int64(ledger.Size) - offset - limit
-		endIndex = int64(ledger.Size) - offset
-
-		if startIndex < 0 {
-			startIndex = 0
-		}
-		if endIndex > int64(ledger.Size) {
-			endIndex = int64(ledger.Size)
-		}
-	}
-
-	mlog(3, "§brichlistHandler(): §7Using index range: start=§e%d§7, end=§e%d", startIndex, endIndex)
-
-	// Build accounts list
-	for i := startIndex; i < endIndex; i++ {
-		var index int64
-		if ascending {
-			index = i
-		} else {
-			// For descending order, reverse the index
-			index = int64(ledger.Size) - 1 - i
+		// For descending order (default, highest balances first)
+		startIdx = offset
+		endIdx = offset + limit
+		if endIdx > int64(ledger.Size) {
+			endIdx = int64(ledger.Size)
 		}
 
-		entry := ledger.Entries[index]
+		// Log the calculated indices
+		mlog(3, "§brichlistHandler(): §7Using index range (descending): start=§e%d§7, end=§e%d", startIdx, endIdx)
 
-		// Extract only the 20-byte address part (not the full address+pubkey)
-		// Mochimo addresses are 20 bytes for address + 32 bytes for pubkey = 52 bytes total
-		addrLen := len(entry.Address)
-		mlog(4, "§brichlistHandler(): §7Processing entry #%d - Address length: §e%d", index, addrLen)
+		// Traverse forward through the ledger for descending order
+		for i := startIdx; i < endIdx; i++ {
+			entry := ledger.Entries[i]
 
-		// Use just the first 20 bytes for the address (tag)
-		var addrTag []byte
-		if addrLen >= 20 {
-			addrTag = entry.Address[:20]
-		} else {
-			mlog(2, "§brichlistHandler(): §4Invalid address length §e%d§4 for entry #%d", addrLen, index)
-			addrTag = entry.Address[:addrLen]
+			// Extract only the 20-byte address part (not the full address+pubkey)
+			addrLen := len(entry.Address)
+			mlog(4, "§brichlistHandler(): §7Processing entry #%d - Address length: §e%d", i, addrLen)
+
+			// Use just the first 20 bytes for the address (tag)
+			var addrTag []byte
+			if addrLen >= 20 {
+				addrTag = entry.Address[:20]
+			} else {
+				mlog(2, "§brichlistHandler(): §4Invalid address length §e%d§4 for entry #%d", addrLen, i)
+				addrTag = entry.Address[:addrLen]
+			}
+
+			addrHex := "0x" + BytesToHex(addrTag)
+
+			// Format balance correctly as a string
+			balanceStr := fmt.Sprintf("%d", entry.Balance)
+
+			mlog(4, "§brichlistHandler(): §7Address: §e%s§7, Balance: §e%s", addrHex, balanceStr)
+
+			accounts = append(accounts, RichlistAccountBalance{
+				AccountIdentifier: AccountIdentifier{
+					Address: addrHex,
+				},
+				Balance: Amount{
+					Value:    balanceStr,
+					Currency: MCMCurrency,
+				},
+			})
 		}
-
-		addrHex := "0x" + BytesToHex(addrTag)
-
-		// Format balance correctly as a string
-		balanceStr := fmt.Sprintf("%d", entry.Balance)
-
-		mlog(4, "§brichlistHandler(): §7Address: §e%s§7, Balance: §e%s", addrHex, balanceStr)
-
-		accounts = append(accounts, RichlistAccountBalance{
-			AccountIdentifier: AccountIdentifier{
-				Address: addrHex,
-			},
-			Balance: Amount{
-				Value:    balanceStr,
-				Currency: MCMCurrency,
-			},
-		})
 	}
 
 	// Build response
