@@ -26,6 +26,7 @@ Besides the default endpoint `https://api.mochimo.org`, you can also use the fol
 - [Call: Resolve Tag](#call-resolve-tag)
 - [Search Transactions](#search-transactions)
 - [Events Blocks](#events-blocks)
+- [Stats: Richlist](#stats-richlist)
 
 ## Network Status
 Get current network status:
@@ -802,3 +803,89 @@ The response contains:
   - `type`: Either "block_added" for new blocks or "block_removed" for orphaned/reorged blocks
 
 This endpoint is especially useful for applications that need to maintain synchronization with the blockchain without implementing their own block syncing logic. By tracking these events, clients can maintain an accurate view of the blockchain's state.
+
+---
+
+## Stats: Richlist
+Get a list of accounts with the highest balances:
+
+### Basic Request
+```bash
+curl -X POST https://api.mochimo.org/stats/richlist \
+  -H "Content-Type: application/json" \
+  -d '{
+    "network_identifier": {
+      "blockchain": "mochimo",
+      "network": "mainnet"
+    }
+  }'
+```
+
+### With Sorting, Offset, and Limit
+```bash
+curl -X POST https://api.mochimo.org/stats/richlist \
+  -H "Content-Type: application/json" \
+  -d '{
+    "network_identifier": {
+      "blockchain": "mochimo",
+      "network": "mainnet"
+    },
+    "ascending": false,
+    "offset": 10,
+    "limit": 20
+  }'
+```
+
+Parameters:
+- `ascending`: Boolean (default: false) - Sort by balance in ascending order if true, descending if false
+- `offset`: Integer (default: 0) - Number of entries to skip
+- `limit`: Integer (default: 50, max: 100) - Maximum number of entries to return
+
+### Sample Response
+```json
+{
+  "block_identifier": {
+    "index": 668405,
+    "hash": "0xa0960ecded5e127e800b92f4e673880fcaa168caea3b504bd28b1399cceebf30"
+  },
+  "last_updated": "2023-08-15T14:30:45Z",
+  "accounts": [
+    {
+      "account_identifier": {
+        "address": "0x64dfe1e04a579de8ab4f15ae533a747c7edc0c4f"
+      },
+      "balance": {
+        "value": "12932222529",
+        "currency": { "symbol": "MCM", "decimals": 9 }
+      }
+    },
+    {
+      "account_identifier": {
+        "address": "0x8413d773b644cb4200ea119cc767632ec2828615"
+      },
+      "balance": {
+        "value": "9876543210",
+        "currency": { "symbol": "MCM", "decimals": 9 }
+      }
+    },
+    {
+      "account_identifier": {
+        "address": "0xc23b1314fec5d61a93d941b84f2dbd3e0c691535"
+      },
+      "balance": {
+        "value": "5432100000",
+        "currency": { "symbol": "MCM", "decimals": 9 }
+      }
+    }
+  ],
+  "total_accounts": 543261
+}
+```
+
+The response contains:
+- `block_identifier`: The block from which the ledger data was taken
+- `last_updated`: Timestamp when the ledger cache was last updated
+- `accounts`: List of account balances sorted by balance
+- `total_accounts`: Total number of accounts in the ledger
+
+> Note: The richlist endpoint requires the API server to be configured with a path to the ledger.dat file using the `-ledger` flag. See the [README](../README.md#statistics-configuration) for more details on enabling this feature.
