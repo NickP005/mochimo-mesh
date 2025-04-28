@@ -115,6 +115,12 @@ func main() {
 		r.HandleFunc("/events/blocks", eventsBlocksHandler).Methods("POST", "OPTIONS")
 	}
 
+	// Add statistics routes if ledger path is specified
+	if Globals.LedgerPath != "" {
+		mlog(2, "§bmain(): §2Ledger path specified, adding statistics routes")
+		r.HandleFunc("/stats/richlist", richlistHandler).Methods("POST", "OPTIONS")
+	}
+
 	elapsed := time.Since(start_time)
 
 	if Globals.EnableHTTPS {

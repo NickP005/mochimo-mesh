@@ -26,6 +26,8 @@ func SetupFlags() bool {
 	flag.StringVar(&TXCLEANFILE_PATH, "txclean", "mochimo/bin/d/txclean.dat", "Path to node's txclean.dat file")
 	flag.Float64Var(&SUGGESTED_FEE_PERC, "fp", 0.4, "The lower percentile of fees set in recent blocks")
 	flag.DurationVar(&REFRESH_SYNC_INTERVAL, "refresh_interval", 5*time.Second, "The interval in seconds to refresh the sync")
+	flag.StringVar(&Globals.LedgerPath, "ledger", "", "Path to the ledger.dat file for statistics")
+	flag.DurationVar(&LEDGER_CACHE_REFRESH_INTERVAL, "ledger_refresh", 900*time.Second, "The interval in seconds to refresh the ledger cache")
 	flag.IntVar(&Globals.LogLevel, "ll", 5, "Log level (1-5). Least to most verbose")
 	flag.StringVar(&solo_node, "solo", "", "Bypass settings and use a single node ip (e.g. 0.0.0.0")
 	flag.IntVar(&Globals.HTTPPort, "p", 8080, "Port to listen to")
@@ -49,6 +51,9 @@ func SetupFlags() bool {
 	}
 	if Globals.KeyFile == "" {
 		Globals.KeyFile = getEnv("MCM_KEY_FILE", "")
+	}
+	if Globals.LedgerPath == "" {
+		Globals.LedgerPath = getEnv("MCM_LEDGER_PATH", "")
 	}
 
 	// Enable HTTPS only if both cert and key are provided

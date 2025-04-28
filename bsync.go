@@ -52,6 +52,11 @@ func Init() {
 			}()
 		}
 
+		// Initialize the statistics functionality if ledger path is specified
+		if Globals.LedgerPath != "" {
+			InitStatistics()
+		}
+
 		ticker := time.NewTicker(REFRESH_SYNC_INTERVAL)
 		defer ticker.Stop()
 
@@ -110,43 +115,6 @@ func Sync() bool {
 	mlog(2, "LatestBlockNum: §e%d", Globals.LatestBlockNum)
 	mlog(3, "LatestBlockHash: §60x%s", hex.EncodeToString(Globals.LatestBlockHash[:]))
 	mlog(3, "CurrentBlockUnixMilli: §e%d §f(§9%d seconds§f ago)", Globals.CurrentBlockUnixMilli, (time.Now().UnixMilli()-int64(Globals.CurrentBlockUnixMilli))/1000)
-
-	// Update the indexer
-	/*
-		if Globals.EnableIndexer {
-			go func() {
-				currentBlock := Globals.LatestBlockNum
-				for currentBlock > 0 {
-					// Skip blocks that are multiples of 256
-					if (currentBlock & 0xFF) == 0 {
-						currentBlock--
-						continue
-					}
-
-					trials := 0
-					for trials < 3 {
-						mlog(5, "§bSync(): §7Querying block §e%d§7 data for indexer", currentBlock)
-						block, err := go_mcminterface.QueryBlockFromNumber(currentBlock)
-						if err == nil {
-							mlog(5, "§bSync(): §7Pushing block §e%d§7 to indexer", currentBlock)
-							INDEXER_DB.PushBlock(block)
-							break
-						}
-
-						mlog(3, "§bSync(): §4Error querying block §e%d§7: §c%s (trial %d/3)", currentBlock, err, trials+1)
-						time.Sleep(5 * time.Second)
-						trials++
-					}
-
-					if trials == 3 {
-						mlog(3, "§bSync(): §4Failed to query block §e%d§7 after 3 attempts", currentBlock)
-						break
-					}
-
-					currentBlock--
-				}
-			}()
-		}*/
 
 	return true
 }

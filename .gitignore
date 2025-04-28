@@ -4,6 +4,8 @@ mochimo-mesh
 mesh
 mesh.exe
 
+mochimo*
+
 mochimo2/
 
 data/blocks/*
@@ -12,6 +14,3 @@ data/blocks/*
 node_modules/
 mochimo/
 dist/
-mochimo-mesh
-mochimo-mesh
-mochimo-mesh
