@@ -36,6 +36,17 @@ func blockHandler(w http.ResponseWriter, r *http.Request) {
 
 	mlog(4, "§bblockHandler(): §7Sending block §9%d §7with hash §9%s §7to §9%s", block.BlockIdentifier.Index, block.BlockIdentifier.Hash, r.RemoteAddr)
 
+	// Set appropriate cache headers based on how the block was requested
+	if req.BlockIdentifier.Hash != "" {
+		// Block requested by hash - use longer cache time
+		w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", Globals.BLOCK_BYHASH_CACHE_TIME))
+		mlog(5, "§bblockHandler(): §7Setting cache for hash-based request to §9%d §7seconds", Globals.BLOCK_BYHASH_CACHE_TIME)
+	} else {
+		// Block requested by number - use shorter cache time
+		w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", Globals.BLOCK_BYNUM_CACHE_TIME))
+		mlog(5, "§bblockHandler(): §7Setting cache for number-based request to §9%d §7seconds", Globals.BLOCK_BYNUM_CACHE_TIME)
+	}
+
 	response := BlockResponse{
 		Block: block,
 	}
@@ -96,7 +107,6 @@ func getBlock(blockIdentifier BlockIdentifier) (Block, error) {
 
 	// Populate transactions
 	block.Transactions = getTransactionsFromBlock(blockData)
-
 	return block, nil
 }
 
@@ -132,7 +142,6 @@ func getBlockByHexHash(hexHash string) (go_mcminterface.Block, error) {
 		// backup the block in the data folder
 		saveBlockInDataFolder(blockData)
 	}
-
 	return blockData, nil
 }
 
@@ -166,7 +175,6 @@ func getTransactionsFromBlock(block go_mcminterface.Block) []Transaction {
 	}
 
 	transactions = append(transactions, getTransactionsFromBlockBody(block.Body, maddr, true)...)
-
 	return transactions
 }
 
@@ -184,11 +192,9 @@ func getTransactionsFromBlockBody(txentries []go_mcminterface.TXENTRY, maddr go_
 	}
 	for _, tx := range txentries {
 		operations := []Operation{}
-
 		// Sent amount
 		txFee := tx.GetFee()
 		total_sent_amount := txFee
-
 		// Add every operation in TXENTRY
 		for i, op := range tx.GetDestinations() {
 			var sent_amount uint64 = binary.LittleEndian.Uint64(op.Amount[:])
@@ -215,10 +221,8 @@ func getTransactionsFromBlockBody(txentries []go_mcminterface.TXENTRY, maddr go_
 
 		source_address := tx.GetSourceAddress().Address
 		source_addrhash := hex.EncodeToString(source_address[20:])
-
 		change_address := tx.GetChangeAddress().Address
 		change_addrhash := hex.EncodeToString(change_address[20:])
-
 		// Remove from source
 		operations = append(operations, Operation{
 			OperationIdentifier: OperationIdentifier{
@@ -260,7 +264,6 @@ func getTransactionsFromBlockBody(txentries []go_mcminterface.TXENTRY, maddr go_
 				"block_to_live": fmt.Sprintf("%d", tx.GetBlockToLive()),
 			},
 		}
-
 		transactions = append(transactions, transaction)
 	}
 	return transactions
@@ -312,6 +315,17 @@ func blockTransactionHandler(w http.ResponseWriter, r *http.Request) {
 		mlog(3, "§bblockTransactionHandler(): §4Transaction §6%s§7 not found", req.TransactionIdentifier.Hash)
 		giveError(w, ErrTXNotFound)
 		return
+	}
+
+	// Set appropriate cache headers based on how the block was requested
+	if req.BlockIdentifier.Hash != "" {
+		// Block requested by hash - use longer cache time
+		w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", Globals.BLOCK_BYHASH_CACHE_TIME))
+		mlog(5, "§bblockTransactionHandler(): §7Setting cache for hash-based request to §9%d §7seconds", Globals.BLOCK_BYHASH_CACHE_TIME)
+	} else {
+		// Block requested by number - use shorter cache time
+		w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", Globals.BLOCK_BYNUM_CACHE_TIME))
+		mlog(5, "§bblockTransactionHandler(): §7Setting cache for number-based request to §9%d §7seconds", Globals.BLOCK_BYNUM_CACHE_TIME)
 	}
 
 	response := BlockTransactionResponse{

@@ -4,9 +4,14 @@ mochimo-mesh
 mesh
 mesh.exe
 
+mochimo2/
+
 data/blocks/*
 
 # historical directory bloat
 node_modules/
 mochimo/
 dist/
+mochimo-mesh
+mochimo-mesh
+mochimo-mesh
