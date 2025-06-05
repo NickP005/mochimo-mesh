@@ -238,6 +238,8 @@ func getTransactionsFromBlockBody(txentries []go_mcminterface.TXENTRY, maddr go_
 			Metadata: map[string]interface{}{
 				"from_address_hash":   "0x" + source_addrhash,
 				"change_address_hash": "0x" + change_addrhash,
+				"source_amount":       fmt.Sprintf("%d", total_sent_amount),
+				"change_amount":       fmt.Sprintf("%d", tx.GetChangeTotal()),
 			},
 		})
 

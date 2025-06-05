@@ -89,8 +89,8 @@ func Sync() bool {
 	Globals.GenesisBlockNum = 0
 	Globals.GenesisBlockHash = first_trailer.Bhash
 
-	// Load the last 800 block hashes to block number map
-	mlog(5, "§bSync(): §7Reading latest §e800§7 blocks map from §8%s", TFILE_PATH)
+	// Load the last 5000 block hashes to block number map
+	mlog(5, "§bSync(): §7Reading latest §e5000§7 blocks map from §8%s", TFILE_PATH)
 	Globals.LastSyncStage = "tfile map"
 	blockmap, err := readBlockMap(5000, TFILE_PATH)
 	if err != nil {
