@@ -33,7 +33,24 @@ type NetworkStatusResponse struct {
 	GenesisBlockIdentifier BlockIdentifier `json:"genesis_block_identifier"`
 	OldestBlockIdentifier  BlockIdentifier `json:"oldest_block_identifier"`
 	SyncStatus             SyncStatus      `json:"sync_status"`
+	HttpsStatus            HttpsStatusInfo `json:"https_status"`
 	//Peers                  []string        `json:"peers"`
+}
+
+type HttpsStatusInfo struct {
+	Enabled     bool             `json:"enabled"`
+	Port        int              `json:"port,omitempty"`
+	Certificate *CertificateInfo `json:"certificate,omitempty"`
+}
+
+type CertificateInfo struct {
+	Subject         string   `json:"subject"`
+	Issuer          string   `json:"issuer"`
+	NotBefore       string   `json:"not_before"`
+	NotAfter        string   `json:"not_after"`
+	DaysUntilExpiry float64  `json:"days_until_expiry"`
+	IsExpired       bool     `json:"is_expired"`
+	DnsNames        []string `json:"dns_names,omitempty"`
 }
 
 // TODO: Add peers
@@ -47,6 +64,30 @@ func networkStatusHandler(w http.ResponseWriter, r *http.Request) {
 
 	// peers are the ips
 	//var peers []string = go_mcminterface.Settings.IPs
+
+	// Prepara le informazioni HTTPS
+	httpsStatus := HttpsStatusInfo{
+		Enabled: Globals.EnableHTTPS,
+	}
+
+	if Globals.EnableHTTPS {
+		httpsStatus.Port = Globals.HTTPSPort
+
+		// Se il CertManager è disponibile, ottieni le informazioni del certificato
+		if Globals.CertManager != nil {
+			if certInfo, err := Globals.CertManager.GetCertificateInfo(); err == nil {
+				httpsStatus.Certificate = &CertificateInfo{
+					Subject:         getString(certInfo, "subject"),
+					Issuer:          getString(certInfo, "issuer"),
+					NotBefore:       getString(certInfo, "not_before"),
+					NotAfter:        getString(certInfo, "not_after"),
+					DaysUntilExpiry: getFloat64(certInfo, "days_until_expiry"),
+					IsExpired:       getBool(certInfo, "is_expired"),
+					DnsNames:        getStringSlice(certInfo, "dns_names"),
+				}
+			}
+		}
+	}
 
 	response := NetworkStatusResponse{
 		CurrentBlockIdentifier: BlockIdentifier{
@@ -62,6 +103,7 @@ func networkStatusHandler(w http.ResponseWriter, r *http.Request) {
 			Stage:  Globals.LastSyncStage,
 			Synced: Globals.IsSynced,
 		},
+		HttpsStatus: httpsStatus,
 	}
 	json.NewEncoder(w).Encode(response)
 }
@@ -143,4 +185,41 @@ func networkOptionsHandler(w http.ResponseWriter, r *http.Request) {
 	// Set headers and encode the response as JSON
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+// Helper functions per convertire i valori dalla mappa del certificato
+func getString(m map[string]interface{}, key string) string {
+	if val, ok := m[key]; ok {
+		if str, ok := val.(string); ok {
+			return str
+		}
+	}
+	return ""
+}
+
+func getFloat64(m map[string]interface{}, key string) float64 {
+	if val, ok := m[key]; ok {
+		if f, ok := val.(float64); ok {
+			return f
+		}
+	}
+	return 0.0
+}
+
+func getBool(m map[string]interface{}, key string) bool {
+	if val, ok := m[key]; ok {
+		if b, ok := val.(bool); ok {
+			return b
+		}
+	}
+	return false
+}
+
+func getStringSlice(m map[string]interface{}, key string) []string {
+	if val, ok := m[key]; ok {
+		if slice, ok := val.([]string); ok {
+			return slice
+		}
+	}
+	return nil
 }

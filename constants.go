@@ -19,7 +19,7 @@ var Constants = ConstantType{
 	}{
 		RosettaVersion:    "1.4.13",
 		NodeVersion:       "3.0.3",
-		MiddlewareVersion: "1.5.0",
+		MiddlewareVersion: "1.5.1",
 	},
 }
 
@@ -100,4 +100,5 @@ type GlobalsType struct {
 	LedgerPath                 string
 	EnableLedgerCache          bool
 	LedgerCacheRefreshInterval int
+	CertManager                *CertManager
 }

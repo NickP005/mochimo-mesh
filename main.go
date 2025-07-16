@@ -2,7 +2,10 @@ package main
 
 import (
 	"net/http"
+	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 
 	"mochimo-mesh/indexer"
@@ -127,14 +130,10 @@ func main() {
 		mlog(1, "§bmain(): §2Server started in §9%s§2 at localhost§8:%d (HTTP) and :%d (HTTPS)",
 			elapsed, Globals.HTTPPort, Globals.HTTPSPort)
 
-		// Start HTTPS server in goroutine
+		// Create and start HTTPS server with automatic certificate reloading
+		Globals.CertManager = NewCertManager(Globals.CertFile, Globals.KeyFile, r, Globals.HTTPSPort)
 		go func() {
-			if err := http.ListenAndServeTLS(
-				":"+strconv.Itoa(Globals.HTTPSPort),
-				Globals.CertFile,
-				Globals.KeyFile,
-				r,
-			); err != nil {
+			if err := Globals.CertManager.Start(); err != nil {
 				mlog(1, "§bmain(): §4HTTPS server failed: %v", err)
 			}
 		}()
@@ -143,8 +142,27 @@ func main() {
 			elapsed, Globals.HTTPPort)
 	}
 
-	// Start HTTP server
-	if err := http.ListenAndServe(":"+strconv.Itoa(Globals.HTTPPort), r); err != nil {
-		mlog(1, "§bmain(): §4HTTP server failed: %v", err)
+	// Setup signal handling for graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	// Start HTTP server in a goroutine
+	go func() {
+		if err := http.ListenAndServe(":"+strconv.Itoa(Globals.HTTPPort), r); err != nil {
+			mlog(1, "§bmain(): §4HTTP server failed: %v", err)
+		}
+	}()
+
+	// Wait for termination signal
+	sig := <-sigChan
+	mlog(1, "§bmain(): §6Received signal %v, shutting down gracefully...", sig)
+
+	// Stop HTTPS server if it's running
+	if Globals.EnableHTTPS && Globals.CertManager != nil {
+		if err := Globals.CertManager.Stop(); err != nil {
+			mlog(1, "§bmain(): §4Error stopping HTTPS server: %v", err)
+		}
 	}
+
+	mlog(1, "§bmain(): §2Shutdown complete")
 }
