@@ -88,6 +88,7 @@ func getBlock(blockIdentifier BlockIdentifier) (Block, error) {
 		"fee":        binary.LittleEndian.Uint64(blockData.Trailer.Mfee[:]),
 		"tx_count":   binary.LittleEndian.Uint32(blockData.Trailer.Tcount[:]),
 		"stime":      int64(binary.LittleEndian.Uint32(blockData.Trailer.Stime[:])) * 1000, // Convert to milliseconds
+		"haiku":      blockData.Trailer.GetHaiku(), // TRIGG haiku from proof-of-work
 	}
 
 	// Construct the Block struct
