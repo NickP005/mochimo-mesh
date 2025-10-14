@@ -225,6 +225,7 @@ main() {
     source_utility "install_mochimo.sh"
     source_utility "configure_yaml.sh"
     source_utility "setup_database.sh"
+    source_utility "cert_manager.sh"
     source_utility "install_service.sh"
     source_utility "verify_setup.sh"
     echo
@@ -374,6 +375,52 @@ main() {
     echo
     
     # ========================================================================
+    # STEP 4.5: HTTPS/TLS Certificate Configuration
+    # ========================================================================
+    print_header "STEP 4.5: HTTPS/TLS CERTIFICATE CONFIGURATION (OPTIONAL)"
+    
+    print_info "HTTPS provides encrypted communication for your API"
+    print_info "You can:"
+    print_info "  - Use an existing Let's Encrypt certificate"
+    print_info "  - Generate a new Let's Encrypt certificate"
+    print_info "  - Skip HTTPS and use HTTP only"
+    echo
+    
+    CERT_FILE=""
+    KEY_FILE=""
+    
+    if ask_yes_no "Would you like to configure HTTPS?" "n"; then
+        echo
+        
+        # Run certificate configuration
+        if cert_output=$(configure_https_certificates 2>&1); then
+            # Parse output
+            while IFS= read -r line; do
+                if [[ "$line" =~ ^CERT_FILE=(.+)$ ]]; then
+                    CERT_FILE="${BASH_REMATCH[1]}"
+                elif [[ "$line" =~ ^KEY_FILE=(.+)$ ]]; then
+                    KEY_FILE="${BASH_REMATCH[1]}"
+                fi
+            done <<< "$cert_output"
+            
+            if [[ -n "$CERT_FILE" && -n "$KEY_FILE" ]]; then
+                print_success "HTTPS configured successfully"
+                print_info "Certificate: $CERT_FILE"
+                print_info "Private Key: $KEY_FILE"
+            else
+                print_warning "Certificate configuration incomplete"
+            fi
+        else
+            print_warning "HTTPS configuration skipped or failed"
+            print_info "You can configure HTTPS later by editing server.yml"
+        fi
+    else
+        print_info "HTTPS configuration skipped"
+        print_info "API will run on HTTP only (port 8080)"
+    fi
+    echo
+    
+    # ========================================================================
     # STEP 5: Apply Configuration
     # ========================================================================
     print_header "STEP 5: APPLYING CONFIGURATION"
@@ -391,6 +438,11 @@ main() {
     # Update blockchain.yml
     if [[ "$ENABLE_STATS" == true ]]; then
         configure_blockchain_yaml "$LEDGER_PATH"
+    fi
+    
+    # Update server.yml for HTTPS
+    if [[ -n "$CERT_FILE" && -n "$KEY_FILE" ]]; then
+        configure_server_yaml "$CERT_FILE" "$KEY_FILE"
     fi
     
     print_success "Configuration files updated"
@@ -474,6 +526,7 @@ main() {
     print_info "  - Mode: $([ "$LOCAL_MODE" == true ] && echo "Local" || echo "Remote")"
     print_info "  - Indexer: $([ "$ENABLE_INDEXER" == true ] && echo "Enabled" || echo "Disabled")"
     print_info "  - Statistics: $([ "$ENABLE_STATS" == true ] && echo "Enabled" || echo "Disabled")"
+    print_info "  - Installation: $([ "$SYSTEM_INSTALL" == true ] && echo "System-wide (/opt/meshapi)" || echo "Local ($PROJECT_ROOT)")"
     echo
     
     if [[ "$OS" == "linux" ]]; then
@@ -486,7 +539,14 @@ main() {
     fi
     echo
     
-    print_info "Configuration files: $PROJECT_ROOT/configuration/"
+    if [[ "$SYSTEM_INSTALL" == true ]]; then
+        print_info "Installation directory: $INSTALL_LOCATION"
+        print_info "Configuration files: $INSTALL_LOCATION/configuration/"
+        print_info "Executable: $INSTALL_LOCATION/bin/mochimo-mesh"
+    else
+        print_info "Installation directory: $PROJECT_ROOT"
+        print_info "Configuration files: $PROJECT_ROOT/configuration/"
+    fi
     print_info "Setup log: $LOG_FILE"
     echo
     

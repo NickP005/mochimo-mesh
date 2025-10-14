@@ -17,6 +17,12 @@ generate_service_file() {
     local user="$1"
     local working_dir="$2"
     local exec_path="$3"
+    local config_flag="$4"
+    
+    local exec_start="$exec_path"
+    if [[ -n "$config_flag" ]]; then
+        exec_start="$exec_path -config $config_flag"
+    fi
     
     cat << EOF
 [Unit]
@@ -29,7 +35,7 @@ Wants=network-online.target
 Type=simple
 User=$user
 WorkingDirectory=$working_dir
-ExecStart=$exec_path
+ExecStart=$exec_start
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -54,6 +60,9 @@ EOF
 
 # Install systemd service
 install_systemd_service() {
+    local install_dir="${1:-$PROJECT_ROOT}"
+    local system_install="${2:-false}"
+    
     if ! command_exists systemctl; then
         print_error "systemd not found - cannot install service"
         return 1
@@ -62,8 +71,22 @@ install_systemd_service() {
     print_step "Installing meshapi systemd service..."
     
     local current_user="${SUDO_USER:-$USER}"
-    local working_dir="$PROJECT_ROOT"
-    local exec_path="$working_dir/mochimo-mesh"
+    local working_dir
+    local exec_path
+    local config_flag=""
+    
+    if [[ "$system_install" == true ]]; then
+        # System-wide installation
+        working_dir="$install_dir"
+        exec_path="$install_dir/bin/mochimo-mesh"
+        config_flag="$install_dir/configuration/config.yml"
+        print_info "System-wide installation: $install_dir"
+    else
+        # Local installation
+        working_dir="$install_dir"
+        exec_path="$working_dir/mochimo-mesh"
+        print_info "Local installation: $working_dir"
+    fi
     
     # Check if executable exists
     if [[ ! -f "$exec_path" ]]; then
@@ -76,7 +99,7 @@ install_systemd_service() {
     chmod +x "$exec_path"
     
     # Generate service file
-    local service_content=$(generate_service_file "$current_user" "$working_dir" "$exec_path")
+    local service_content=$(generate_service_file "$current_user" "$working_dir" "$exec_path" "$config_flag")
     
     # Write service file
     if echo "$service_content" | sudo tee "$SERVICE_FILE" > /dev/null; then
@@ -99,6 +122,11 @@ install_systemd_service() {
     fi
     
     print_success "Service installed successfully"
+    
+    if [[ -n "$config_flag" ]]; then
+        print_info "Service will use config: $config_flag"
+    fi
+    
     echo
     
     return 0

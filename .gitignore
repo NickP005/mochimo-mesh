@@ -16,3 +16,4 @@ mochimo/
 dist/
 
 test*
+logs/

@@ -148,6 +148,44 @@ configure_blockchain_yaml() {
     return 0
 }
 
+# Update server.yml configuration for HTTPS
+configure_server_yaml() {
+    local cert_file="$1"
+    local key_file="$2"
+    
+    local server_yaml="$CONFIG_DIR/server.yml"
+    
+    if [[ ! -f "$server_yaml" ]]; then
+        print_error "server.yml not found: $server_yaml"
+        return 1
+    fi
+    
+    print_step "Updating server.yml for HTTPS..."
+    
+    # Update certificate paths
+    if [[ -n "$cert_file" && -n "$key_file" ]]; then
+        update_yaml_value "$server_yaml" "tls_cert_file" "\"$cert_file\""
+        print_info "  tls_cert_file: $cert_file"
+        
+        update_yaml_value "$server_yaml" "tls_key_file" "\"$key_file\""
+        print_info "  tls_key_file: $key_file"
+        
+        # Enable HTTPS
+        update_yaml_value "$server_yaml" "enable_tls" "true"
+        print_info "  enable_tls: true"
+        
+        print_success "HTTPS configured in server.yml"
+    else
+        # Disable HTTPS
+        update_yaml_value "$server_yaml" "enable_tls" "false"
+        update_yaml_value "$server_yaml" "tls_cert_file" "\"\""
+        update_yaml_value "$server_yaml" "tls_key_file" "\"\""
+        print_info "  HTTPS disabled"
+    fi
+    
+    return 0
+}
+
 # Backup configuration files
 backup_configuration() {
     local backup_dir="$CONFIG_DIR/backups"

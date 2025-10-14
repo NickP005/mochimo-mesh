@@ -87,18 +87,30 @@ find_mochimo_executables() {
     
     for search_path in "${search_paths[@]}"; do
         if [[ -d "$search_path" ]]; then
-            # Search for tfile.dat as indicator of Mochimo data directory
+            # Search for tfile.dat as indicator of Mochimo data directory (max depth 5, timeout 10s)
             while IFS= read -r -d '' tfile; do
                 local data_dir=$(dirname "$tfile")
                 # Avoid duplicates
-                if [[ ! " ${found[@]} " =~ " ${data_dir} " ]]; then
+                local is_duplicate=false
+                if [[ ${#found[@]} -gt 0 ]]; then
+                    for existing in "${found[@]}"; do
+                        if [[ "$existing" == "$data_dir" ]]; then
+                            is_duplicate=true
+                            break
+                        fi
+                    done
+                fi
+                if [[ "$is_duplicate" == false ]]; then
                     found+=("$data_dir")
                 fi
-            done < <(find "$search_path" -name "tfile.dat" -type f 2>/dev/null -print0)
+            done < <(timeout 10 find "$search_path" -maxdepth 5 -name "tfile.dat" -type f 2>/dev/null -print0 || true)
         fi
     done
     
-    printf '%s\n' "${found[@]}"
+    # Print results if any found
+    if [[ ${#found[@]} -gt 0 ]]; then
+        printf '%s\n' "${found[@]}"
+    fi
 }
 
 # Verify and format installation info
@@ -115,11 +127,23 @@ format_installation_info() {
     [[ -f "$ledger" ]] && status+="L" || status+="-"
     [[ -f "$txclean" ]] && status+="X" || status+="-"
     
-    # Calculate total size
+    # Calculate total size (compatible with both macOS and Linux)
     local total_size=0
-    [[ -f "$tfile" ]] && total_size=$((total_size + $(stat -f%z "$tfile" 2>/dev/null || stat -c%s "$tfile" 2>/dev/null)))
-    [[ -f "$ledger" ]] && total_size=$((total_size + $(stat -f%z "$ledger" 2>/dev/null || stat -c%s "$ledger" 2>/dev/null)))
-    [[ -f "$txclean" ]] && total_size=$((total_size + $(stat -f%z "$txclean" 2>/dev/null || stat -c%s "$txclean" 2>/dev/null)))
+    
+    if [[ -f "$tfile" ]]; then
+        local tfile_size=$(stat -f%z "$tfile" 2>/dev/null || stat -c%s "$tfile" 2>/dev/null || echo "0")
+        total_size=$((total_size + tfile_size))
+    fi
+    
+    if [[ -f "$ledger" ]]; then
+        local ledger_size=$(stat -f%z "$ledger" 2>/dev/null || stat -c%s "$ledger" 2>/dev/null || echo "0")
+        total_size=$((total_size + ledger_size))
+    fi
+    
+    if [[ -f "$txclean" ]]; then
+        local txclean_size=$(stat -f%z "$txclean" 2>/dev/null || stat -c%s "$txclean" 2>/dev/null || echo "0")
+        total_size=$((total_size + txclean_size))
+    fi
     
     # Convert to human readable
     local size_mb=$((total_size / 1024 / 1024))

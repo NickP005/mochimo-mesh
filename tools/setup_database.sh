@@ -18,20 +18,26 @@ test_mysql_connection() {
     local port="$2"
     local user="$3"
     local password="$4"
-    local database="$5"
+    local database="${5:-}"
     
-    if command_exists mysql; then
-        if mysql -h"$host" -P"$port" -u"$user" -p"$password" -e "SELECT 1;" >/dev/null 2>&1; then
-            return 0
-        fi
-    elif command_exists mariadb; then
-        if mariadb -h"$host" -P"$port" -u"$user" -p"$password" -e "SELECT 1;" >/dev/null 2>&1; then
-            return 0
-        fi
-    else
+    local mysql_cmd="mysql"
+    if command_exists mariadb; then
+        mysql_cmd="mariadb"
+    elif ! command_exists mysql; then
         print_error "MySQL/MariaDB client not found"
         print_info "Please install mysql-client or mariadb-client"
         return 1
+    fi
+    
+    # Test connection (with or without password)
+    if [[ -n "$password" ]]; then
+        if MYSQL_PWD="$password" $mysql_cmd -h"$host" -P"$port" -u"$user" -e "SELECT 1;" >/dev/null 2>&1; then
+            return 0
+        fi
+    else
+        if $mysql_cmd -h"$host" -P"$port" -u"$user" -e "SELECT 1;" >/dev/null 2>&1; then
+            return 0
+        fi
     fi
     
     return 1
@@ -45,8 +51,14 @@ database_exists() {
     local password="$4"
     local database="$5"
     
-    if mysql -h"$host" -P"$port" -u"$user" -p"$password" -e "USE $database;" 2>/dev/null; then
-        return 0
+    if [[ -n "$password" ]]; then
+        if MYSQL_PWD="$password" mysql -h"$host" -P"$port" -u"$user" -e "USE $database;" 2>/dev/null; then
+            return 0
+        fi
+    else
+        if mysql -h"$host" -P"$port" -u"$user" -e "USE $database;" 2>/dev/null; then
+            return 0
+        fi
     fi
     
     return 1
@@ -62,13 +74,22 @@ create_database() {
     
     print_step "Creating database: $database"
     
-    if mysql -h"$host" -P"$port" -u"$user" -p"$password" -e "CREATE DATABASE IF NOT EXISTS $database CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null; then
-        print_success "Database created: $database"
-        return 0
+    local create_cmd="CREATE DATABASE IF NOT EXISTS \`$database\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+    
+    if [[ -n "$password" ]]; then
+        if MYSQL_PWD="$password" mysql -h"$host" -P"$port" -u"$user" -e "$create_cmd" 2>/dev/null; then
+            print_success "Database created: $database"
+            return 0
+        fi
     else
-        print_error "Failed to create database"
-        return 1
+        if mysql -h"$host" -P"$port" -u"$user" -e "$create_cmd" 2>/dev/null; then
+            print_success "Database created: $database"
+            return 0
+        fi
     fi
+    
+    print_error "Failed to create database"
+    return 1
 }
 
 # Get list of tables in database
@@ -79,7 +100,11 @@ get_tables() {
     local password="$4"
     local database="$5"
     
-    mysql -h"$host" -P"$port" -u"$user" -p"$password" "$database" -N -e "SHOW TABLES;" 2>/dev/null
+    if [[ -n "$password" ]]; then
+        MYSQL_PWD="$password" mysql -h"$host" -P"$port" -u"$user" "$database" -N -e "SHOW TABLES;" 2>/dev/null
+    else
+        mysql -h"$host" -P"$port" -u"$user" "$database" -N -e "SHOW TABLES;" 2>/dev/null
+    fi
 }
 
 # Apply database schema
@@ -124,7 +149,11 @@ apply_schema() {
                         print_step "Dropping all tables..."
                         # Drop all tables
                         for table in $existing_tables; do
-                            mysql -h"$host" -P"$port" -u"$user" -p"$password" "$database" -e "DROP TABLE IF EXISTS $table;" 2>/dev/null
+                            if [[ -n "$password" ]]; then
+                                MYSQL_PWD="$password" mysql -h"$host" -P"$port" -u"$user" "$database" -e "DROP TABLE IF EXISTS \`$table\`;" 2>/dev/null
+                            else
+                                mysql -h"$host" -P"$port" -u"$user" "$database" -e "DROP TABLE IF EXISTS \`$table\`;" 2>/dev/null
+                            fi
                         done
                         print_info "All tables dropped"
                     else
@@ -149,7 +178,16 @@ apply_schema() {
     echo
     print_step "Applying schema from $SCHEMA_FILE..."
     
-    if mysql -h"$host" -P"$port" -u"$user" -p"$password" "$database" < "$SCHEMA_FILE" 2>/dev/null; then
+    local apply_result
+    if [[ -n "$password" ]]; then
+        MYSQL_PWD="$password" mysql -h"$host" -P"$port" -u"$user" "$database" < "$SCHEMA_FILE" 2>/dev/null
+        apply_result=$?
+    else
+        mysql -h"$host" -P"$port" -u"$user" "$database" < "$SCHEMA_FILE" 2>/dev/null
+        apply_result=$?
+    fi
+    
+    if [[ $apply_result -eq 0 ]]; then
         print_success "Schema applied successfully"
         
         # Show created tables
