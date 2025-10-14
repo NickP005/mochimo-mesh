@@ -297,7 +297,10 @@ main() {
                 # Install fresh Mochimo instance
                 echo
                 print_step "Installing fresh Mochimo node..."
-                MOCHIMO_PATHS=$(install_fresh_mochimo)
+                MOCHIMO_PATHS=$(install_fresh_mochimo) || {
+                    print_error "Failed to install Mochimo node"
+                    exit 1
+                }
             elif [[ "$selection" =~ ^[0-9]+$ ]] && [[ $selection -ge 1 ]] && [[ $selection -le $max_selection ]]; then
                 # Use existing installation
                 MOCHIMO_PATHS="${installations_array[$((selection-1))]}"
@@ -309,7 +312,10 @@ main() {
             print_warning "No existing Mochimo installation found"
             
             if ask_yes_no "Would you like to install a fresh Mochimo node?" "y"; then
-                MOCHIMO_PATHS=$(install_fresh_mochimo)
+                MOCHIMO_PATHS=$(install_fresh_mochimo) || {
+                    print_error "Failed to install Mochimo node"
+                    exit 1
+                }
             else
                 print_error "Local mode requires a Mochimo node installation"
                 exit 1
@@ -352,7 +358,7 @@ main() {
         echo
         
         # Database configuration
-        DB_CONFIG=$(setup_database_interactive)
+        DB_CONFIG=$(setup_database_interactive) || true
         
         if [[ -n "$DB_CONFIG" && "$DB_CONFIG" != "false" ]]; then
             print_success "Indexer configured"

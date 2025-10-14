@@ -164,22 +164,22 @@ configure_server_yaml() {
     
     # Update certificate paths
     if [[ -n "$cert_file" && -n "$key_file" ]]; then
-        update_yaml_value "$server_yaml" "tls_cert_file" "\"$cert_file\""
-        print_info "  tls_cert_file: $cert_file"
+        update_yaml_value "$server_yaml" "cert_file" "\"$cert_file\""
+        print_info "  cert_file: $cert_file"
         
-        update_yaml_value "$server_yaml" "tls_key_file" "\"$key_file\""
-        print_info "  tls_key_file: $key_file"
+        update_yaml_value "$server_yaml" "key_file" "\"$key_file\""
+        print_info "  key_file: $key_file"
         
         # Enable HTTPS
-        update_yaml_value "$server_yaml" "enable_tls" "true"
-        print_info "  enable_tls: true"
+        update_yaml_value "$server_yaml" "enable_https" "true"
+        print_info "  enable_https: true"
         
         print_success "HTTPS configured in server.yml"
     else
         # Disable HTTPS
-        update_yaml_value "$server_yaml" "enable_tls" "false"
-        update_yaml_value "$server_yaml" "tls_cert_file" "\"\""
-        update_yaml_value "$server_yaml" "tls_key_file" "\"\""
+        update_yaml_value "$server_yaml" "enable_https" "false"
+        update_yaml_value "$server_yaml" "cert_file" "\"\""
+        update_yaml_value "$server_yaml" "key_file" "\"\""
         print_info "  HTTPS disabled"
     fi
     
