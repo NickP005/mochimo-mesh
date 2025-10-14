@@ -1,0 +1,202 @@
+# ╔═══════════════════════════════════════════════════════════════════════════════════════╗
+# ║                                                                                       ║
+# ║                                   ████████████████                                    ║
+# ║                               ████              ████                                  ║
+# ║                             ███                    ███                                ║
+# ║                           ███     ████████████      ███                               ║
+# ║                          ███    ████        ████     ███                              ║
+# ║                         ███    ███            ███    ███                              ║
+# ║                        ███    ███              ███    ███                             ║
+# ║                        ███    ███     ████     ███    ███                             ║
+# ║                        ███    ███    ██████    ███    ███                             ║
+# ║                        ███    ███     ████     ███    ███                             ║
+# ║                         ███    ███            ███    ███                              ║
+# ║                          ███    ████        ████     ███                              ║
+# ║                           ███     ████████████      ███                               ║
+# ║                             ███                    ███                                ║
+# ║                               ████              ████                                  ║
+# ║                                   ████████████████                                    ║
+# ║                                              ███                                      ║
+# ║                                               ███                                     ║
+# ║                                                ███                                    ║
+# ║                                                 ███                                   ║
+# ║                                                  ███                                  ║
+# ║                                                   ███                                 ║
+# ║                                                    ████                               ║
+# ║                                                      ████                             ║
+# ║                                                        ████                           ║
+# ║                                                          ████                         ║
+# ║                                                                                       ║
+# ║                           MOCHIMO MESH API - INDEXER CONFIG                           ║
+# ║                                       v1.5.1                                          ║
+# ║                                                                                       ║
+# ╚═══════════════════════════════════════════════════════════════════════════════════════╝
+#
+# Indexer Configuration File
+# ===========================
+# This file contains specific configurations for the blockchain indexer.
+# The indexer recursively downloads and stores historical blockchain data
+# in the MySQL database for advanced querying and search capabilities.
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Synchronization Strategy                                                │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# sync_direction: Direction of blockchain synchronization for the indexer
+# Default: "backward"
+# The indexer works by recursively downloading blocks starting from the latest
+# block and going backwards through the parent chain.
+# Options:
+#   - "backward" = Start from latest block and go backwards (default, recommended)
+#   - "forward"  = Start from genesis and go forwards (not recommended for indexer)
+# Note: The indexer's recursive algorithm (PushBlock -> parent check -> download parent)
+# is specifically designed for backward synchronization
+sync_direction: "backward"
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Block Processing Limits                                                 │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# max_blocks_per_sync: Maximum number of blocks to process per sync iteration
+# Default: -1 (unlimited)
+# Controls how many blocks the indexer will recursively process in one cycle
+# Options:
+#   - -1  = Unlimited, continue until no more parent blocks can be downloaded (default)
+#   - >0  = Limit to specific number (e.g., 100, 1000)
+# Recommendation: Keep at -1 for optimal indexer performance
+# The indexer will naturally stop when it reaches blocks already in the database
+# or when the node doesn't have older blocks available
+max_blocks_per_sync: -1
+
+# continuous_sync: Continue syncing recursively without stopping
+# Default: true
+# When true, the indexer will continuously try to fill in missing blocks
+continuous_sync: true
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Block Download & Retry Settings                                         │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# max_download_retries: Maximum number of retry attempts for downloading missing blocks
+# Default: 5
+# When a parent block is not found in the database, the indexer attempts to download it
+# This setting controls how many times to retry before giving up
+max_download_retries: 5
+
+# retry_delay: Delay between retry attempts (in seconds)
+# Default: 10
+# Time to wait between failed download attempts
+# Examples:
+#   - 5  = 5 seconds (faster, more aggressive)
+#   - 10 = 10 seconds (default, balanced)
+#   - 30 = 30 seconds (slower, less aggressive)
+retry_delay: 10
+
+# download_timeout: Timeout for block download operations (in seconds)
+# Default: 30
+# Maximum time to wait for a single block download before considering it failed
+download_timeout: 30
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Hash to Block Number Map Configuration                                  │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# CRITICAL BOTTLENECK RESOLUTION:
+# The indexer's GetBlockByHexHash function relies on Globals.HashToBlockNumber
+# to convert block hashes to block numbers for node queries. When the hash is
+# not in the map, the download fails even if the node has the block.
+
+# enable_extended_hash_map: Enable extended hash map for indexer
+# Default: true
+# When true, the indexer will maintain a larger hash-to-block-number mapping
+# to improve success rate when downloading historical blocks
+enable_extended_hash_map: true
+
+# indexer_hash_map_size: Size of the extended indexer hash map (sliding window)
+# Default: 50000
+# The indexer maintains its own hash-to-block-number mapping using a sliding window approach:
+# - Keeps the most recent N blocks in memory (N = hash_map_size)
+# - When the window is full and new blocks arrive, old blocks are automatically removed
+# - Example: With size 50000, if you sync blocks 100000-150000, the cache will hold those
+#            When block 150001 arrives, block 100000 is removed, shifting the window to 100001-150001
+# This is much larger than the 5000-block limit in bsync's global map, allowing the indexer
+# to resolve parent hashes during recursive block downloads without excessive memory usage
+# Recommended: 50000 for normal usage, increase if syncing very large block ranges at once
+indexer_hash_map_size: 50000
+
+# hash_map_preload: Preload hash map from tfile on startup
+# Default: true
+# When enabled, loads more block hashes from tfile.dat on startup
+# This helps the indexer have better coverage for historical block downloads
+hash_map_preload: true
+
+# hash_map_preload_count: Number of blocks to preload into hash map
+# Default: 50000
+# How many recent blocks to load from tfile.dat on startup
+# Should be <= indexer_hash_map_size
+hash_map_preload_count: 50000
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Fallback Strategy for Missing Hash Mappings                             │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# enable_hash_fallback: Enable fallback strategy when hash is not in map
+# Default: true
+# When a block hash is not found in HashToBlockNumber map, try alternative methods
+enable_hash_fallback: true
+
+# fallback_methods: List of fallback methods to try (in order)
+# Default: ["tfile_scan"]
+# Options:
+#   - "tfile_scan"        = Scan tfile.dat for the block hash (comprehensive but slow)
+#   - "sequential_search" = Try querying recent block numbers sequentially (experimental)
+# Note: 
+#   - "database_lookup" has been removed because if the block is already in the database,
+#     we don't need to download it (it means it's already synced)
+#   - These methods are slower but can help resolve missing blocks during recursive download
+fallback_methods:
+  - "tfile_scan"
+
+# sequential_search_range: Range to search when using sequential_search fallback
+# Default: 1000
+# How many block numbers to try around the estimated position
+sequential_search_range: 1000
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Performance & Resource Management                                       │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# parallel_processing: Enable parallel block processing
+# Default: false
+# When true, process multiple blocks concurrently (experimental)
+# Warning: May cause database conflicts, use with caution
+parallel_processing: false
+
+# max_concurrent_downloads: Maximum concurrent block downloads
+# Default: 1
+# Only used if parallel_processing is enabled
+max_concurrent_downloads: 1
+
+# batch_insert_size: Number of transactions to batch before inserting
+# Default: 100
+# Higher values = better performance but more memory usage
+batch_insert_size: 100
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Status & Logging                                                        │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# log_sync_progress: Log indexer sync progress
+# Default: true
+# When true, logs detailed progress of block synchronization
+log_sync_progress: true
+
+# progress_report_interval: How often to report sync progress (in blocks)
+# Default: 100
+# Report progress every N blocks processed
+progress_report_interval: 100
+
+# track_sync_statistics: Track and report sync statistics
+# Default: true
+# Tracks metrics like blocks/second, download success rate, etc.
+track_sync_statistics: true

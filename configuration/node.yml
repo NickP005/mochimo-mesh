@@ -1,0 +1,283 @@
+# ╔═══════════════════════════════════════════════════════════════════════════════════════╗
+# ║                                                                                       ║
+# ║                               ████████████████████                                    ║
+# ║                         ███████      ███         ███████                              ║
+# ║                      █████          ███               █████                           ║
+# ║                   ████             ███                    ████                        ║
+# ║                 ███    ██████████████████████████████████    ███                      ║
+# ║               ███    ███         ███        ███         ███    ███                    ║
+# ║              ███     ███         ███        ███         ███     ███                   ║
+# ║             ███       ██         ███        ███         ██       ███                  ║
+# ║            ███        ██         ███        ███         ██        ███                 ║
+# ║            ███        ██         ███        ███         ██        ███                 ║
+# ║           ███         ██         ███        ███         ██         ███                ║
+# ║            ███        ██         ███        ███         ██        ███                 ║
+# ║            ███        ██         ███        ███         ██        ███                 ║
+# ║             ███       ██         ███        ███         ██       ███                  ║
+# ║              ███      ██         ███        ███         ██      ███                   ║
+# ║               ███     ██         ███        ███         ██     ███                    ║
+# ║                 ████████████████████████████████████████████████                      ║
+# ║                   ████                                    ████                        ║
+# ║                      █████                            █████                           ║
+# ║                         ██████                  ██████                                ║
+# ║                               ███████████████████                                     ║
+# ║                                                                                       ║
+# ║                            MOCHIMO MESH API - NODE CONFIG                             ║
+# ║                                       v1.5.1                                          ║
+# ║                                                                                       ║
+# ╚═══════════════════════════════════════════════════════════════════════════════════════╝
+#
+# Node Configuration File
+# ========================
+# This file contains all Mochimo node connection settings and file paths
+# required for the Mesh API to interact with the Mochimo blockchain node.
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Node Connection Settings                                                │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# node_port: Default port to connect to Mochimo nodes
+# Default: 2095
+# The standard Mochimo node communication port
+node_port: 2095
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Node Connection Mode                                                    │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# local_mode: Connect to local node (0.0.0.0) only
+# Default: false
+local_mode: false
+
+# trusted_nodes: Verified nodes (prioritized for queries)
+# Default: [] - Format: "ip:port" or "ip" (uses node_port)
+trusted_nodes: []
+#  - "0.0.0.0"
+#  - "myitaliannode.com"
+
+# starting_nodes: Initial seed nodes for discovery
+# Default: [] (loads from interface_settings.json)
+starting_nodes: []
+#  - "dev-api.mochiscan.org"
+
+# use_only_trusted: Use only trusted_nodes (no discovery)
+# Default: false
+use_only_trusted: false
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Node Discovery & Benchmarking                                           │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+node_discovery:
+  # enable: Automatic node discovery and benchmarking
+  # Default: true (auto-disabled if local_mode or use_only_trusted)
+  enable: true
+  
+  # discovery_interval: Periodic node discovery via ExpandIPs()
+  # Default: "30m" - Format: "5m", "1h", "30s"
+  discovery_interval: "30m"
+  
+  # benchmark_interval: Periodic node speed testing
+  # Default: "15m"
+  benchmark_interval: "15m"
+  
+  # ip_expand_depth: Peer discovery depth (1-5)
+  # Default: 2 
+  ip_expand_depth: 2
+  
+  # benchmark_concurrent: Parallel benchmark tests (1-50)
+  # Default: 10
+  benchmark_concurrent: 10
+  
+  # min_nodes_threshold: Trigger emergency discovery below this count
+  # Default: 5
+  min_nodes_threshold: 5
+  
+  # max_nodes_pool: Keep only N fastest nodes
+  # Default: 100
+  max_nodes_pool: 100
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Node Settings File                                                      │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# settings_path: Path to the interface settings JSON file
+# Default: "configuration/interface_settings.json"
+# This file contains the list of peer nodes and network configuration
+# generated by the go_mcminterface library
+# Examples:
+#   - "configuration/interface_settings.json" (default)
+#   - "interface_settings.json" (legacy location)
+#   - "config/nodes.json"
+#   - "/etc/mochimo/interface_settings.json"
+settings_path: "configuration/interface_settings.json"
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Node Data File Paths                                                    │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# tfile_path: Path to the node's tfile.dat file
+# Default: "mochimo/bin/d/tfile.dat"
+# The tfile contains the trailer file with block hashes and metadata
+# Used for:
+#   - Block hash to block number mapping
+#   - Quick block lookups
+#   - Fee statistics from recent blocks
+# Examples:
+#   - "mochimo/bin/d/tfile.dat"
+#   - "/var/mochimo/data/tfile.dat"
+#   - "../node/bin/d/tfile.dat"
+tfile_path: "mochimo/bin/d/tfile.dat"
+
+# txclean_path: Path to the node's txclean.dat file
+# Default: "mochimo/bin/d/txclean.dat"
+# The txclean file contains the current mempool (pending transactions)
+# Used for:
+#   - /mempool endpoint
+#   - /mempool/transaction endpoint
+#   - Real-time transaction status before block confirmation
+# Examples:
+#   - "mochimo/bin/d/txclean.dat"
+#   - "/var/mochimo/data/txclean.dat"
+#   - "../node/bin/d/txclean.dat"
+txclean_path: "mochimo/bin/d/txclean.dat"
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Node Health & Monitoring                                                │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# connection_timeout: Timeout for node connections in seconds
+# Default: 10
+# Maximum time to wait for a node to respond before trying another
+connection_timeout: 10
+
+# max_retry_attempts: Maximum number of retry attempts when connecting to nodes
+# Default: 3
+# How many times to retry failed node connections
+max_retry_attempts: 3
+
+# node_rotation_enabled: Enable automatic rotation through available nodes
+# Default: true
+# When true, the API will rotate through available nodes for load balancing
+node_rotation_enabled: true
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ EXAMPLE CONFIGURATIONS                                                  │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║ Example 1: Development with Local Node                                  ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+# Use this configuration when developing with a local Mochimo node
+#
+# local_mode: true
+# node_port: 2095
+# settings_path: "configuration/interface_settings.json"
+# tfile_path: "mochimo/bin/d/tfile.dat"
+# txclean_path: "mochimo/bin/d/txclean.dat"
+# connection_timeout: 5
+# max_retry_attempts: 1
+# node_rotation_enabled: false
+# node_discovery:
+#   enable: false
+
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║ Example 2: Production with Trusted Nodes Only                           ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+# Use this configuration for production environments with verified nodes
+#
+# local_mode: false
+# use_only_trusted: true
+# trusted_nodes:
+#   - "seed1.mochimo.org:2095"
+#   - "seed2.mochimo.org:2095"
+#   - "192.168.1.100:2095"
+# node_port: 2095
+# settings_path: "configuration/interface_settings.json"
+# tfile_path: "/var/mochimo/data/tfile.dat"
+# txclean_path: "/var/mochimo/data/txclean.dat"
+# connection_timeout: 10
+# max_retry_attempts: 3
+# node_rotation_enabled: true
+# node_discovery:
+#   enable: false  # Disabled when use_only_trusted is true
+
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║ Example 3: Public Network with Full Discovery                           ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+# Use this configuration for public networks with dynamic node discovery
+#
+# local_mode: false
+# use_only_trusted: false
+# trusted_nodes:
+#   - "seed1.mochimo.org"
+#   - "seed2.mochimo.org"
+# starting_nodes:
+#   - "node1.example.com"
+#   - "node2.example.com"
+#   - "192.168.1.50"
+# node_port: 2095
+# settings_path: "configuration/interface_settings.json"
+# tfile_path: "/var/mochimo/data/tfile.dat"
+# txclean_path: "/var/mochimo/data/txclean.dat"
+# connection_timeout: 10
+# max_retry_attempts: 3
+# node_rotation_enabled: true
+# node_discovery:
+#   enable: true
+#   discovery_interval: "30m"
+#   benchmark_interval: "15m"
+#   ip_expand_depth: 2
+#   benchmark_concurrent: 10
+#   min_nodes_threshold: 5
+#   max_nodes_pool: 100
+
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║ Example 4: High Performance with Aggressive Discovery                   ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+# Use this configuration for high-traffic environments requiring optimal nodes
+#
+# local_mode: false
+# use_only_trusted: false
+# trusted_nodes:
+#   - "seed1.mochimo.org"
+#   - "seed2.mochimo.org"
+# starting_nodes:
+#   - "node1.example.com"
+#   - "node2.example.com"
+# node_port: 2095
+# settings_path: "configuration/interface_settings.json"
+# tfile_path: "/var/mochimo/data/tfile.dat"
+# txclean_path: "/var/mochimo/data/txclean.dat"
+# connection_timeout: 5
+# max_retry_attempts: 5
+# node_rotation_enabled: true
+# node_discovery:
+#   enable: true
+#   discovery_interval: "10m"      # More frequent discovery
+#   benchmark_interval: "5m"       # More frequent benchmarking
+#   ip_expand_depth: 3             # Deeper peer discovery
+#   benchmark_concurrent: 20       # More aggressive benchmarking
+#   min_nodes_threshold: 10        # Higher threshold for safety
+#   max_nodes_pool: 200            # Larger pool of nodes
+
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║ Example 5: Private/Permissioned Network                                 ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+# Use this configuration for private blockchain deployments
+#
+# local_mode: false
+# use_only_trusted: true
+# trusted_nodes:
+#   - "10.0.1.10:2095"
+#   - "10.0.1.11:2095"
+#   - "10.0.1.12:2095"
+# node_port: 2095
+# settings_path: "configuration/interface_settings.json"
+# tfile_path: "/opt/mochimo/tfile.dat"
+# txclean_path: "/opt/mochimo/txclean.dat"
+# connection_timeout: 10
+# max_retry_attempts: 3
+# node_rotation_enabled: true
+# node_discovery:
+#   enable: false  # No discovery in private networks

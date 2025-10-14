@@ -1,0 +1,158 @@
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║                                                                           ║
+# ║                        ███╗   ███╗ ██████╗  ██████╗██╗  ██╗              ║
+# ║                        ████╗ ████║██╔═══██╗██╔════╝██║  ██║              ║
+# ║                        ██╔████╔██║██║   ██║██║     ███████║              ║
+# ║                        ██║╚██╔╝██║██║   ██║██║     ██╔══██║              ║
+# ║                        ██║ ╚═╝ ██║╚██████╔╝╚██████╗██║  ██║              ║
+# ║                        ╚═╝     ╚═╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝              ║
+# ║                                                                           ║
+# ║                           ███╗   ███╗███████╗███████╗██╗  ██╗            ║
+# ║                           ████╗ ████║██╔════╝██╔════╝██║  ██║            ║
+# ║                           ██╔████╔██║█████╗  ███████╗███████║            ║
+# ║                           ██║╚██╔╝██║██╔══╝  ╚════██║██╔══██║            ║
+# ║                           ██║ ╚═╝ ██║███████╗███████║██║  ██║            ║
+# ║                           ╚═╝     ╚═╝╚══════╝╚══════╝╚═╝  ╚═╝            ║
+# ║                                                                           ║
+# ║                    MOCHIMO MESH API - BLOCKCHAIN CONFIG                  ║
+# ║                                 v1.5.1                                    ║
+# ║                                                                           ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# Blockchain Configuration File
+# ==============================
+# This file contains all blockchain-specific settings including network
+# identifiers, synchronization intervals, fee calculations, and ledger paths.
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Network Identification                                                  │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# network: Network identifier for Rosetta API
+# blockchain: The blockchain name
+# Default: "mochimo"
+network:
+  blockchain: "mochimo"
+  
+  # network_name: The specific network (mainnet, testnet, etc.)
+  # Default: "mainnet"
+  # Options: "mainnet", "testnet", "devnet"
+  network_name: "mainnet"
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Version Information                                                     │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# versions: Version information for the API stack
+versions:
+  # rosetta_version: Rosetta specification version
+  # Default: "1.4.13"
+  rosetta_version: "1.4.13"
+  
+  # node_version: Mochimo node version
+  # Default: "3.0.3"
+  node_version: "3.0.3"
+  
+  # middleware_version: Mochimo Mesh API version
+  # Default: "1.5.1"
+  middleware_version: "1.5.1"
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Synchronization Settings                                                │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# refresh_sync_interval: Interval (in seconds) between blockchain sync checks
+# Default: 5
+# How often the API checks for new blocks and updates blockchain state
+# Examples:
+#   - 1  = Every second (high load, most up-to-date)
+#   - 5  = Every 5 seconds (default, balanced)
+#   - 10 = Every 10 seconds (lower load)
+#   - 30 = Every 30 seconds (minimal load)
+refresh_sync_interval: 5
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Fee Configuration                                                       │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# suggested_fee_percentile: Percentile of minimum fees from recent blocks
+# Default: 0.4 (40th percentile)
+# Used to calculate the suggested fee for new transactions
+# Range: 0.0 to 1.0
+# Examples:
+#   - 0.25 = 25th percentile (lower fees, slower confirmation)
+#   - 0.40 = 40th percentile (default, balanced)
+#   - 0.50 = 50th percentile (median fee)
+#   - 0.75 = 75th percentile (higher fees, faster confirmation)
+suggested_fee_percentile: 0.4
+
+# max_wots_tx_length: Maximum WOTS+ transaction length in bytes
+# Default: 13628
+# This is the maximum size for WOTS+ signature transactions
+# Note: This is a protocol constant and should not be changed unless
+# the Mochimo protocol is updated
+max_wots_tx_length: 13628
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Ledger & Statistics Configuration                                       │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# ledger_path: Path to the ledger.dat file for statistics and richlist
+# Default: "mochimo/bin/d/ledger.dat"
+# When specified, enables the /stats/richlist endpoint
+# The ledger file contains the complete state of all addresses
+# Examples:
+#   - "mochimo/bin/d/ledger.dat" (default)
+#   - "/var/mochimo/data/ledger.dat"
+#   - "../node/bin/d/ledger.dat"
+#   - "" = Disabled
+# Environment variable fallback: MCM_LEDGER_PATH
+ledger_path: "mochimo/bin/d/ledger.dat"
+
+# enable_ledger_cache: Enable caching of ledger data
+# Default: true (enabled when ledger_path is set)
+# Caching significantly improves performance for statistics queries
+enable_ledger_cache: true
+
+# ledger_cache_refresh_interval: Interval (in seconds) to refresh ledger cache
+# Default: 900 (15 minutes)
+# How often the ledger cache is updated with fresh data
+# Examples:
+#   - 300  = 5 minutes (frequent updates, higher load)
+#   - 900  = 15 minutes (default, balanced)
+#   - 1800 = 30 minutes (less frequent updates)
+#   - 3600 = 1 hour (minimal updates)
+ledger_cache_refresh_interval: 900
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Block Processing                                                        │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# genesis_block: Genesis block configuration
+# Note: These are typically auto-discovered during sync
+# Override only if you need to specify a specific genesis block
+genesis_block:
+  # number: Genesis block number (usually 0)
+  # Default: auto-discovered
+  number: 0
+  
+  # hash: Genesis block hash (hex encoded)
+  # Default: auto-discovered
+  # Leave empty for auto-discovery
+  hash: ""
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Hash to Block Number Mapping                                            │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# max_hash_map_size: Maximum number of entries in the HashToBlockNumber map
+# Default: 10000
+# This map is used to quickly convert block hashes to block numbers
+# When the map exceeds this size, old entries are purged
+# Higher values = more memory but better cache hit rate for old blocks
+# Examples:
+#   - 5000  = Keep last ~5000 blocks in memory
+#   - 10000 = Keep last ~10000 blocks in memory (default)
+#   - 20000 = Keep last ~20000 blocks in memory
+#   - -1    = Unlimited (not recommended)
+max_hash_map_size: 10000

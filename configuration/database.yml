@@ -1,0 +1,120 @@
+# ╔═══════════════════════════════════════════════════════════════════════════════════════╗
+# ║                                                                                       ║
+# ║                               ████████████████████                                    ║
+# ║                         ███████      ███         ███████                              ║
+# ║                      █████          ███               █████                           ║
+# ║                   ████             ███                    ████                        ║
+# ║                 ███    ██████████████████████████████████    ███                      ║
+# ║               ███    ███         ███        ███         ███    ███                    ║
+# ║              ███     ███         ███        ███         ███     ███                   ║
+# ║             ███       ██         ███        ███         ██       ███                  ║
+# ║            ███        ██         ███        ███         ██        ███                 ║
+# ║            ███        ██         ███        ███         ██        ███                 ║
+# ║           ███         ██         ███        ███         ██         ███                ║
+# ║            ███        ██         ███        ███         ██        ███                 ║
+# ║            ███        ██         ███        ███         ██        ███                 ║
+# ║             ███       ██         ███        ███         ██       ███                  ║
+# ║              ███      ██         ███        ███         ██      ███                   ║
+# ║               ███     ██         ███        ███         ██     ███                    ║
+# ║                 ████████████████████████████████████████████████                      ║
+# ║                   ████                                    ████                        ║
+# ║                      █████                            █████                           ║
+# ║                         ██████                  ██████                                ║
+# ║                               ███████████████████                                     ║
+# ║                                                                                       ║
+# ║                          MOCHIMO MESH API - DATABASE CONFIG                           ║
+# ║                                       v1.5.1                                          ║
+# ║                                                                                       ║
+# ╚═══════════════════════════════════════════════════════════════════════════════════════╝
+
+
+#
+# Database Configuration File
+# ============================
+# This file contains all database and indexer configurations for the Mochimo
+# Mesh API. The indexer stores blockchain data in MySQL for advanced queries,
+# search functionality, and event tracking.
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Indexer Enable/Disable                                                  │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# enable_indexer: Enable or disable the blockchain indexer
+#   - true:  Index blocks, transactions, and events into MySQL database
+#            Enables /search/transactions and /events/blocks endpoints
+#   - false: Run without database indexing (basic functionality only)
+# Default: false
+# Note: Requires a working MySQL database connection when enabled
+enable_indexer: false
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ MySQL Connection Settings                                               │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# host: MySQL server hostname or IP address
+# Default: "localhost"
+# Examples: "localhost", "127.0.0.1", "db.example.com", "mysql-server"
+indexer_host: "localhost"
+
+# port: MySQL server port
+# Default: 3306
+# Standard MySQL port is 3306
+indexer_port: 3306
+
+# user: MySQL username for authentication
+# Default: "root"
+# Example: "mochimo_user", "indexer", "admin"
+indexer_user: "root"
+
+# password: MySQL password for authentication
+# Default: "" (empty)
+# Security Note: Use environment variable MCM_DB_PASSWORD for production
+# Environment variables override YAML settings:
+#   - MCM_DB_HOST     = Override indexer_host
+#   - MCM_DB_USER     = Override indexer_user
+#   - MCM_DB_PASSWORD = Override indexer_password (recommended for security)
+#   - MCM_DB_NAME     = Override indexer_database
+indexer_password: ""
+
+# database: MySQL database name
+# Default: "mochimo"
+# This database will be created if it doesn't exist (requires appropriate privileges)
+indexer_database: "mochimo"
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Advanced Database Settings                                              │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# connection_pool:
+#   max_open_connections: Maximum number of open connections to the database
+#   Default: 25
+#   Recommended: 25-100 for production depending on load
+#   Setting to 0 means unlimited (not recommended)
+#   
+#   max_idle_connections: Maximum number of idle connections in the pool
+#   Default: 5
+#   Should be lower than max_open_connections
+#   Idle connections are kept alive for faster subsequent queries
+#   
+#   connection_lifetime: Maximum lifetime of a connection in seconds
+#   Default: 3600 (1 hour)
+#   After this time, connections are closed and recreated
+#   Helps prevent stale connections and resource leaks
+connection_pool:
+  max_open_connections: 25
+  max_idle_connections: 5
+  connection_lifetime: 3600
+
+# retry_settings:
+#   max_retries: Maximum number of connection retry attempts on startup
+#   Default: 3
+#   If database is temporarily unavailable, retry this many times before failing
+#   Useful for containerized deployments where DB may start after the API
+#   
+#   retry_delay: Delay between retry attempts in seconds
+#   Default: 5
+#   Time to wait between connection attempts
+#   Gives the database time to become available
+retry_settings:
+  max_retries: 3
+  retry_delay: 5

@@ -48,6 +48,9 @@ func (d *Database) PushBlock(block go_mcminterface.Block) {
 		HaikuID:     nil, // Haiku ID will be set later if needed
 	}
 
+	// NOTE: We don't update the hash map here because it's loaded in batches from tfile
+	// The hash map is only used during sync to resolve parent block hashes
+
 	// If a block with the same number already exists, update their status to SPLIT
 	exist_same_height, err := d.GetBlocksByNumber(blockMetadata.BlockHeight)
 	if err != nil {
@@ -128,17 +131,17 @@ func (d *Database) PushBlock(block go_mcminterface.Block) {
 
 	if prevBlock == nil {
 		mlog(3, "§bIndexer.PushBlock(): §9Previous block not found in database, attempting to download")
-		// Try to download the block up to 3 times
+		// Try to download the block using configured retry settings
 		var downloadedBlock go_mcminterface.Block
 		var downloadErr error
-		for i := 0; i < 5; i++ {
+		for i := 0; i < MaxDownloadRetries; i++ {
 			downloadedBlock, downloadErr = GetBlockByHexHash("0x" + blockMetadata.ParentHash)
 			if downloadErr == nil {
 				break
 			}
-			mlog(3, "§bIndexer.PushBlock(): §4Attempt %d failed to download block: §c%s§4. Trying again in 10 seconds.", i+1, downloadErr)
-			// sleep 5 seconds before retrying
-			time.Sleep(10 * time.Second)
+			mlog(3, "§bIndexer.PushBlock(): §4Attempt %d failed to download block: §c%s§4. Trying again in %d seconds.", i+1, downloadErr, RetryDelay)
+			// Sleep configured delay before retrying
+			time.Sleep(time.Duration(RetryDelay) * time.Second)
 		}
 
 		if downloadErr == nil {
@@ -146,7 +149,7 @@ func (d *Database) PushBlock(block go_mcminterface.Block) {
 			// Process the downloaded block recursively
 			d.PushBlock(downloadedBlock)
 		} else {
-			mlog(2, "§bIndexer.PushBlock(): §4Failed to download previous block after 5 attempts")
+			mlog(2, "§bIndexer.PushBlock(): §4Failed to download previous block after %d attempts", MaxDownloadRetries)
 		}
 	} else if prevBlock.Status != StatusTypeAccepted {
 		mlog(3, "§bIndexer.PushBlock(): §9Previous block found but not accepted, updating status")

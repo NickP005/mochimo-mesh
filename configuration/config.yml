@@ -1,0 +1,94 @@
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║                                                                           ║
+# ║                        ███╗   ███╗ ██████╗  ██████╗██╗  ██╗               ║
+# ║                        ████╗ ████║██╔═══██╗██╔════╝██║  ██║               ║
+# ║                        ██╔████╔██║██║   ██║██║     ███████║               ║
+# ║                        ██║╚██╔╝██║██║   ██║██║     ██╔══██║               ║
+# ║                        ██║ ╚═╝ ██║╚██████╔╝╚██████╗██║  ██║               ║
+# ║                        ╚═╝     ╚═╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝               ║
+# ║                                                                           ║
+# ║                           ███╗   ███╗███████╗███████╗██╗  ██╗             ║
+# ║                           ████╗ ████║██╔════╝██╔════╝██║  ██║             ║
+# ║                           ██╔████╔██║█████╗  ███████╗███████║             ║
+# ║                           ██║╚██╔╝██║██╔══╝  ╚════██║██╔══██║             ║
+# ║                           ██║ ╚═╝ ██║███████╗███████║██║  ██║             ║
+# ║                           ╚═╝     ╚═╝╚══════╝╚══════╝╚═╝  ╚═╝             ║
+# ║                                                                           ║
+# ║                MOCHIMO MESH API - CONFIGURATION INDEX                     ║
+# ║                                 v1.5.1                                    ║
+# ║                                                                           ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# Configuration Index File
+# =========================
+# This is the main configuration file that defines the paths to all other
+# configuration files. Edit the paths below if you want to use custom
+# configuration file locations.
+#
+# All paths can be:
+#   - Relative to the executable location
+#   - Absolute paths
+#   - Use environment variables (not yet implemented)
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Configuration Files Paths                                               │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# Configuration directory base path
+# Default: "configuration/"
+# All relative paths below will be relative to this directory
+config_dir: "configuration/"
+
+# server_config: Path to server configuration file
+# Contains: HTTP/HTTPS settings, ports, TLS certificates, logging
+# Default: "server.yml"
+server_config: "server.yml"
+
+# database_config: Path to database/indexer configuration file
+# Contains: MySQL connection settings, indexer enable/disable
+# Default: "database.yml"
+database_config: "database.yml"
+
+# node_config: Path to Mochimo node configuration file
+# Contains: Node connection settings, file paths (tfile, txclean), interface settings
+# Default: "node.yml"
+node_config: "node.yml"
+
+# blockchain_config: Path to blockchain configuration file
+# Contains: Network identifiers, sync intervals, fees, ledger path, cache settings
+# Default: "blockchain.yml"
+blockchain_config: "blockchain.yml"
+
+# indexer_config: Path to indexer-specific configuration file
+# Contains: Indexer synchronization strategy, retry settings, hash map configuration
+# Default: "indexer.yml"
+indexer_config: "indexer.yml"
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Configuration Loading Priority                                          │
+# └─────────────────────────────────────────────────────────────────────────┘
+# 
+# The configuration is loaded in the following priority order:
+# 1. Command-line flags (highest priority)
+# 2. Environment variables
+# 3. YAML configuration files (this file and referenced files)
+# 4. Default values (lowest priority)
+#
+# This allows for flexible deployment scenarios where you can:
+# - Use YAML files for base configuration
+# - Override with environment variables in containers/cloud deployments
+# - Override with command-line flags for quick testing
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ Advanced Settings                                                       │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# hot_reload: Enable hot-reloading of configuration files (future feature)
+# Default: false
+# When enabled, configuration changes will be applied without restarting
+hot_reload: false
+
+# config_validation: Validate configuration on startup
+# Default: true
+# When enabled, validates all configuration values before starting
+config_validation: true

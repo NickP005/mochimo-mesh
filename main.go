@@ -14,64 +14,23 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Log the request
-		var scheme string = "R"
-		if Globals.EnableHTTPS {
-			scheme = "HTTP r"
-			if r.TLS != nil {
-				scheme = "HTTPS r"
-			}
-		}
-		mlog(5, "§bcorsMiddleware(): §f%sequest from §9%s§f to §9%s§f with method §9%s", scheme, r.RemoteAddr, r.URL.Path, r.Method)
-
-		// Set headers before any other operation
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "*")
-		w.Header().Set("Access-Control-Allow-Headers", "*")
-
-		// Handle preflight
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		// Only set Content-Type for non-OPTIONS requests
-		if r.Method != "OPTIONS" {
-			w.Header().Set("Content-Type", "application/json")
-		}
-
-		next.ServeHTTP(w, r)
-	})
-}
-
-func maxRequestSizeMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 30KB = 30 * 1024 bytes
-		r.Body = http.MaxBytesReader(w, r.Body, 30*1024)
-
-		if err := r.ParseForm(); err != nil {
-			http.Error(w, "Request too large", http.StatusRequestEntityTooLarge)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
-}
-
 func main() {
 	start_time := time.Now()
 
-	go_mcminterface.LoadSettings(SETTINGS_PATH)
-
+	// Load configuration FIRST (this sets SETTINGS_PATH, TFILE_PATH, etc.)
 	if !SetupFlags() {
 		return
 	}
 
+	// Then load node settings from the path configured in node.yml
+	go_mcminterface.LoadSettings(SETTINGS_PATH)
+
 	if Globals.OnlineMode {
 		mlog(1, "§bmain(): §2Running in online mode!")
 		Init()
+
+		// Start node discovery and benchmarking if enabled
+		StartNodeDiscovery()
 	} else {
 		mlog(1, "§bmain(): §2Running in offline mode!")
 	}
@@ -84,7 +43,8 @@ func main() {
 	r := mux.NewRouter()
 
 	r.Use(corsMiddleware)
-	r.Use(maxRequestSizeMiddleware) // Add the new middleware
+	r.Use(rateLimitMiddleware)      // Rate limiting from server.yml
+	r.Use(maxRequestSizeMiddleware) // Max request size from server.yml
 
 	r.HandleFunc("/network/options", networkOptionsHandler).Methods("POST", "OPTIONS")
 	r.HandleFunc("/network/list", networkListHandler).Methods("POST", "OPTIONS")

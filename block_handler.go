@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"mochimo-mesh/indexer"
+
 	"github.com/NickP005/go_mcminterface"
 )
 
@@ -88,7 +90,7 @@ func getBlock(blockIdentifier BlockIdentifier) (Block, error) {
 		"fee":        binary.LittleEndian.Uint64(blockData.Trailer.Mfee[:]),
 		"tx_count":   binary.LittleEndian.Uint32(blockData.Trailer.Tcount[:]),
 		"stime":      int64(binary.LittleEndian.Uint32(blockData.Trailer.Stime[:])) * 1000, // Convert to milliseconds
-		"haiku":      blockData.Trailer.GetHaiku(), // TRIGG haiku from proof-of-work
+		"haiku":      blockData.Trailer.GetHaiku(),                                         // TRIGG haiku from proof-of-work
 	}
 
 	// Construct the Block struct
@@ -120,18 +122,31 @@ func getBlockByHexHash(hexHash string) (go_mcminterface.Block, error) {
 	blockData, err := getBlockInDataFolder(hexHash)
 	if err != nil {
 		mlog(5, "§bgetBlockByHexHash(): §7Block not found in data folder, fetching from the network. Error: §c%s", err)
-		// check in the Globals.HashToBlockNumber map the block number
-		blockNumber, ok := Globals.HashToBlockNumber[hexHash]
-		if !ok {
-			mlog(5, "§bgetBlockByHexHash(): §7Block §6%s§7 not found in the block map", hexHash)
-			// print the map hash as hex : int
-			/*
-				for k, v := range Globals.HashToBlockNumber {
-					fmt.Println("Hash: ", k, "Block Number: ", v)
-				}*/
-			return go_mcminterface.Block{}, err
+
+		var blockNumber uint32
+		var ok bool
+
+		// Try indexer extended hash map first (if indexer is enabled and extended hash map is enabled)
+		if Globals.EnableIndexer && Globals.IndexerEnableExtendedHashMap {
+			hashMap := indexer.GetHashMap()
+			if hashMap != nil {
+				blockNumber, ok = hashMap.Get(hexHash)
+				if ok {
+					mlog(5, "§bgetBlockByHexHash(): §aBlock found in indexer extended hash map: §6%d", blockNumber)
+				}
+			}
 		}
-		mlog(5, "§bgetBlockByHexHash(): §fBlock found in the block map: §6%d", blockNumber)
+
+		// Fallback to global hash map if not found in indexer map
+		if !ok {
+			blockNumber, ok = Globals.HashToBlockNumber[hexHash]
+			if !ok {
+				mlog(5, "§bgetBlockByHexHash(): §7Block §6%s§7 not found in any hash map", hexHash)
+				return go_mcminterface.Block{}, err
+			}
+			mlog(5, "§bgetBlockByHexHash(): §fBlock found in global hash map: §6%d", blockNumber)
+		}
+
 		blockData, err = go_mcminterface.QueryBlockFromNumber(uint64(blockNumber))
 		if err != nil {
 			return go_mcminterface.Block{}, err

@@ -3,9 +3,6 @@ package main
 import (
 	"flag"
 	"os"
-	"time"
-
-	"github.com/NickP005/go_mcminterface"
 )
 
 /*
@@ -19,33 +16,59 @@ func Setup() {
  * Loads the flags and prepares the program accordingly
  */
 func SetupFlags() bool {
-	solo_node := ""
+	config_path := ""
 
-	flag.StringVar(&SETTINGS_PATH, "settings", "interface_settings.json", "Path to the interface settings file")
-	flag.StringVar(&TFILE_PATH, "tfile", "mochimo/bin/d/tfile.dat", "Path to node's tfile.dat file")
-	flag.StringVar(&TXCLEANFILE_PATH, "txclean", "mochimo/bin/d/txclean.dat", "Path to node's txclean.dat file")
-	flag.Float64Var(&SUGGESTED_FEE_PERC, "fp", 0.4, "The lower percentile of fees set in recent blocks")
-	flag.DurationVar(&REFRESH_SYNC_INTERVAL, "refresh_interval", 5*time.Second, "The interval in seconds to refresh the sync")
-	flag.StringVar(&Globals.LedgerPath, "ledger", "", "Path to the ledger.dat file for statistics")
-	flag.DurationVar(&LEDGER_CACHE_REFRESH_INTERVAL, "ledger_refresh", 900*time.Second, "The interval in seconds to refresh the ledger cache")
-	flag.IntVar(&Globals.LogLevel, "ll", 5, "Log level (1-5). Least to most verbose")
-	flag.StringVar(&solo_node, "solo", "", "Bypass settings and use a single node ip (e.g. 0.0.0.0")
-	flag.IntVar(&Globals.HTTPPort, "p", 8080, "Port to listen to")
-	flag.IntVar(&Globals.HTTPSPort, "ptls", 8443, "Port to listen to for TLS")
-	flag.IntVar(&go_mcminterface.Settings.DefaultPort, "np", 2095, "Port to connect to the node")
-	flag.BoolVar(&Globals.OnlineMode, "online", true, "Run in online mode")
-	flag.StringVar(&Globals.CertFile, "cert", "", "Path to SSL certificate file")
-	flag.StringVar(&Globals.KeyFile, "key", "", "Path to SSL private key file")
-	flag.BoolVar(&Globals.EnableIndexer, "indexer", false, "Enable the indexer")
-	flag.StringVar(&Globals.IndexerHost, "dbh", "localhost", "Indexer host")
-	flag.IntVar(&Globals.IndexerPort, "dbp", 3306, "Indexer port")
-	flag.StringVar(&Globals.IndexerUser, "dbu", "root", "Indexer user")
-	flag.StringVar(&Globals.IndexerPassword, "dbpw", "", "Indexer password")
-	flag.StringVar(&Globals.IndexerDatabase, "dbdb", "mochimo", "Indexer database")
+	// Only flag needed: path to main configuration file
+	flag.StringVar(&config_path, "config", "configuration/config.yml", "Path to the main configuration file")
 
 	flag.Parse()
 
-	// Check environment variables if flags are not set
+	// Load YAML configuration
+	if err := LoadAllConfigs(config_path); err != nil {
+		mlog(1, "§bSetupFlags(): §c✖ FATAL: Failed to load YAML configuration: %v", err)
+		return false
+	}
+
+	// Apply blockchain configuration FIRST (defines network, versions, fundamental settings)
+	if loadedBlockchainConfig != nil {
+		ApplyBlockchainConfigToGlobals(loadedBlockchainConfig)
+	} else {
+		mlog(1, "§bSetupFlags(): §c✖ FATAL: Blockchain configuration not loaded")
+		return false
+	}
+
+	// Apply server configuration from YAML
+	if loadedServerConfig != nil {
+		ApplyServerConfigToGlobals(loadedServerConfig)
+	} else {
+		mlog(1, "§bSetupFlags(): §c✖ FATAL: Server configuration not loaded")
+		return false
+	}
+
+	// Apply node configuration from YAML
+	if loadedNodeConfig != nil {
+		ApplyNodeConfigToGlobals(loadedNodeConfig)
+	} else {
+		mlog(1, "§bSetupFlags(): §c✖ FATAL: Node configuration not loaded")
+		return false
+	}
+
+	// Apply database configuration from YAML (must be before indexer config)
+	if loadedDatabaseConfig != nil {
+		ApplyDatabaseConfigToGlobals(loadedDatabaseConfig)
+	} else {
+		mlog(2, "§bSetupFlags(): §e⚠ Database configuration not loaded (indexer will be disabled)")
+		Globals.EnableIndexer = false
+	}
+
+	// Apply indexer configuration from YAML
+	if loadedIndexerConfig != nil {
+		ApplyIndexerConfigToGlobals(loadedIndexerConfig)
+	} else {
+		mlog(2, "§bSetupFlags(): §e⚠ Indexer configuration not loaded")
+	}
+
+	// Check environment variables for cert/key files (as documented in server.yml)
 	if Globals.CertFile == "" {
 		Globals.CertFile = getEnv("MCM_CERT_FILE", "")
 	}
@@ -56,17 +79,31 @@ func SetupFlags() bool {
 		Globals.LedgerPath = getEnv("MCM_LEDGER_PATH", "")
 	}
 
+	// Check environment variables for database credentials (security best practice)
+	if envHost := getEnv("MCM_DB_HOST", ""); envHost != "" {
+		Globals.IndexerHost = envHost
+	}
+	if envPort := getEnv("MCM_DB_PORT", ""); envPort != "" {
+		// Port conversion would require strconv, keep it simple for now
+		mlog(4, "§bSetupFlags(): §7Environment variable MCM_DB_PORT detected but not applied (use database.yml)")
+	}
+	if envUser := getEnv("MCM_DB_USER", ""); envUser != "" {
+		Globals.IndexerUser = envUser
+	}
+	if envPassword := getEnv("MCM_DB_PASSWORD", ""); envPassword != "" {
+		Globals.IndexerPassword = envPassword
+		mlog(4, "§bSetupFlags(): §7Using database password from MCM_DB_PASSWORD environment variable")
+	}
+	if envDatabase := getEnv("MCM_DB_NAME", ""); envDatabase != "" {
+		Globals.IndexerDatabase = envDatabase
+	}
+
 	// Enable HTTPS only if both cert and key are provided
 	Globals.EnableHTTPS = Globals.CertFile != "" && Globals.KeyFile != ""
 
 	if flag.Lookup("help") != nil {
 		flag.PrintDefaults()
 		return false
-	}
-
-	if solo_node != "" {
-		go_mcminterface.Settings.StartIPs = []string{solo_node}
-		go_mcminterface.Settings.ForceQueryStartIPs = true
 	}
 
 	return true

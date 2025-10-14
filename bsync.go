@@ -12,10 +12,10 @@ import (
 	"github.com/NickP005/go_mcminterface"
 )
 
-var REFRESH_SYNC_INTERVAL time.Duration = 10
-var SUGGESTED_FEE_PERC float64 = 0.25 // the percentile of the minimum fee
-var TFILE_PATH = "mochimo/bin/d/tfile.dat"
-var SETTINGS_PATH string = "interface_settings.json"
+// Note: TFILE_PATH and SETTINGS_PATH are set from node.yml configuration
+// REFRESH_SYNC_INTERVAL and SUGGESTED_FEE_PERC are now in Globals (from blockchain.yml)
+var TFILE_PATH = "mochimo/bin/d/tfile.dat"           // Default, overridden by node.yml
+var SETTINGS_PATH string = "interface_settings.json" // Default, overridden by node.yml
 
 var INDEXER_DB *indexer.Database
 
@@ -24,31 +24,77 @@ func Init() {
 	go func() {
 		// Call sync until it is successful
 		for !Sync() {
-			mlog(3, "§bInit(): §4Sync() failed§f (Node offline?), retrying in §9%d seconds", int(REFRESH_SYNC_INTERVAL.Seconds()))
-			time.Sleep(REFRESH_SYNC_INTERVAL)
+			refreshInterval := time.Duration(Globals.RefreshSyncInterval) * time.Second
+			mlog(3, "§bInit(): §4Sync() failed§f (Node offline?), retrying in §9%d seconds", Globals.RefreshSyncInterval)
+			time.Sleep(refreshInterval)
 		}
 
 		// Start the indexer
 		if Globals.EnableIndexer {
 			Globals.EnableIndexer = false
 			go func() {
-				// Create database
+				// Create database with connection pool and retry settings from database.yml
 				db, err := indexer.NewDatabase(indexer.DatabaseConfig{
-					Host:     Globals.IndexerHost,
-					Port:     Globals.IndexerPort,
-					User:     Globals.IndexerUser,
-					Password: Globals.IndexerPassword,
-					Database: Globals.IndexerDatabase,
+					Host:                 Globals.IndexerHost,
+					Port:                 Globals.IndexerPort,
+					User:                 Globals.IndexerUser,
+					Password:             Globals.IndexerPassword,
+					Database:             Globals.IndexerDatabase,
+					MaxOpenConnections:   Globals.IndexerMaxOpenConnections,
+					MaxIdleConnections:   Globals.IndexerMaxIdleConnections,
+					ConnectionLifetime:   Globals.IndexerConnectionLifetime,
+					MaxConnectionRetries: Globals.IndexerMaxConnectionRetries,
+					RetryDelay:           Globals.IndexerConnectionRetryDelay,
 				}, Globals.LogLevel)
 				if err != nil {
 					mlog(3, "§bInit(): §4Error creating indexer database: §c%s", err)
 					Globals.EnableIndexer = false
 					return
 				}
+
+				// Configure indexer settings from YAML
+				indexer.SetIndexerConfig(
+					Globals.IndexerMaxDownloadRetries,
+					Globals.IndexerRetryDelay,
+					Globals.IndexerDownloadTimeout,
+					Globals.IndexerEnableExtendedHashMap,
+					Globals.IndexerHashMapSize,
+					Globals.IndexerHashMapPreload,
+					Globals.IndexerHashMapPreloadCount,
+					Globals.IndexerEnableHashFallback,
+					Globals.IndexerFallbackMethods,
+					Globals.IndexerSequentialSearchRange,
+					Globals.IndexerParallelProcessing,
+					Globals.IndexerMaxConcurrentDownloads,
+					Globals.IndexerBatchInsertSize,
+					Globals.IndexerLogSyncProgress,
+					Globals.IndexerProgressReportInterval,
+					Globals.IndexerTrackSyncStatistics,
+				)
+
+				// Initialize extended hash map if enabled
+				if Globals.IndexerEnableExtendedHashMap {
+					err := indexer.InitHashMap(Globals.IndexerHashMapSize, TFILE_PATH)
+					if err != nil {
+						mlog(3, "§bInit(): §4Error initializing indexer hash map: §c%s", err)
+					} else {
+						hashMap := indexer.GetHashMap()
+						if hashMap != nil {
+							min, max, size := hashMap.GetWindowInfo()
+							mlog(5, "§bInit(): §7Indexer extended hash map initialized: capacity=%d, entries=%d", Globals.IndexerHashMapSize, size)
+							if size > 0 {
+								mlog(5, "§bInit(): §7Sliding window: blocks [%d - %d]", min, max)
+							}
+						}
+					}
+				}
+
 				INDEXER_DB = db
 				Globals.EnableIndexer = true
 
 				mlog(5, "§bInit(): §7Indexer database created")
+				mlog(5, "§bInit(): §7Indexer configured: MaxRetries=%d, RetryDelay=%ds, HashMapSize=%d",
+					Globals.IndexerMaxDownloadRetries, Globals.IndexerRetryDelay, Globals.IndexerHashMapSize)
 			}()
 		}
 
@@ -57,7 +103,8 @@ func Init() {
 			InitStatistics()
 		}
 
-		ticker := time.NewTicker(REFRESH_SYNC_INTERVAL)
+		refreshInterval := time.Duration(Globals.RefreshSyncInterval) * time.Second
+		ticker := time.NewTicker(refreshInterval)
 		defer ticker.Stop()
 
 		for range ticker.C {
@@ -181,9 +228,12 @@ func RefreshSync() error {
 	for k, v := range blockmap {
 		Globals.HashToBlockNumber[k] = v
 	}
-	PurgeBlockMap(uint32(latest_block - 10000))
+	// Purge old entries based on configured MaxHashMapSize from blockchain.yml
+	if Globals.MaxHashMapSize > 0 {
+		PurgeBlockMap(uint32(latest_block - uint64(Globals.MaxHashMapSize)))
+	}
 
-	// get the last 10 minimum mining fees and set the suggested fee accordingly to SUGGESTED_FEE_PERC
+	// Get the last 100 minimum mining fees and set the suggested fee according to configured percentile
 	Globals.LastSyncStage = "min fee"
 	minfees := make([]uint64, 0, 100)
 	minfee_map, error := readMinFeeMap(100, TFILE_PATH)
@@ -199,7 +249,8 @@ func RefreshSync() error {
 	sort.Slice(minfees, func(i, j int) bool {
 		return minfees[i] < minfees[j]
 	})
-	position := int(SUGGESTED_FEE_PERC*float64(len(minfees)) - 1)
+	// Use configured percentile from blockchain.yml
+	position := int(Globals.SuggestedFeePercentile*float64(len(minfees)) - 1)
 	if position < 0 {
 		position = 0
 	} else if position >= len(minfees) {
@@ -207,7 +258,7 @@ func RefreshSync() error {
 	}
 	if Globals.SuggestedFee != minfees[position] && minfees[position] > 500 {
 		Globals.SuggestedFee = minfees[position]
-		mlog(2, "§bRefreshSync(): §7Suggested fee set to §e%d §7being §e%d%% §7lower percentile", Globals.SuggestedFee, position+1)
+		mlog(2, "§bRefreshSync(): §7Suggested fee set to §e%d §7(§e%.0f%% §7percentile)", Globals.SuggestedFee, Globals.SuggestedFeePercentile*100)
 	}
 
 	Globals.LastSyncStage = "synchronized"

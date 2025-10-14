@@ -11,8 +11,8 @@ import (
 	"github.com/NickP005/go_mcminterface"
 )
 
-// Constants for statistics functionality
-var LEDGER_CACHE_REFRESH_INTERVAL time.Duration = 900 * time.Second // 15 minutes default
+// Note: Ledger cache refresh interval is now configured in blockchain.yml
+// and stored in Globals.LedgerCacheRefreshInterval (in seconds)
 
 // LedgerCache holds the cached ledger data and related information
 type LedgerCache struct {
@@ -108,8 +108,9 @@ func InitStatistics() {
 			mlog(3, "§bInitStatistics(): §4Initial ledger cache refresh failed: §c%s", err)
 		}
 
-		// Set up periodic refresh
-		ticker := time.NewTicker(LEDGER_CACHE_REFRESH_INTERVAL)
+		// Set up periodic refresh using configured interval from blockchain.yml
+		refreshInterval := time.Duration(Globals.LedgerCacheRefreshInterval) * time.Second
+		ticker := time.NewTicker(refreshInterval)
 		defer ticker.Stop()
 
 		for range ticker.C {
