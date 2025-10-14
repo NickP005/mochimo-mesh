@@ -184,18 +184,28 @@ detect_mochimo_installations() {
         fi
     done <<< "$found_dirs"
     
-    # Print formatted results
+    # Return installations array (one per line)
     if [[ ${#installations[@]} -gt 0 ]]; then
-        for install in "${installations[@]}"; do
-            IFS='|' read -r path status size tfile ledger txclean <<< "$install"
-            echo -e "${CYAN}Path:${NC} $path ${GREEN}[$status]${NC} ${YELLOW}($size)${NC}"
-            echo -e "  ${CYAN}tfile:${NC}   $tfile"
-            echo -e "  ${CYAN}ledger:${NC}  $ledger"
-            echo -e "  ${CYAN}txclean:${NC} $txclean"
-        done
+        printf '%s\n' "${installations[@]}"
     fi
     
     return 0
+}
+
+# Display installations in a user-friendly numbered format
+display_mochimo_installations() {
+    local installations=("$@")
+    local index=1
+    
+    for install in "${installations[@]}"; do
+        IFS='|' read -r path status size tfile ledger txclean <<< "$install"
+        echo -e " ${CYAN}${index}.${NC} ${WHITE}$path${NC} ${GREEN}[$status]${NC} ${YELLOW}($size)${NC}"
+        echo -e "    ${DIM}tfile:   $tfile${NC}"
+        echo -e "    ${DIM}ledger:  $ledger${NC}"
+        echo -e "    ${DIM}txclean: $txclean${NC}"
+        echo
+        ((index++))
+    done
 }
 
 # Extract specific path from formatted installation info

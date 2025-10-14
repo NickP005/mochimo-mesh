@@ -26,6 +26,7 @@ CYAN='\033[0;36m'
 WHITE='\033[1;37m'
 NC='\033[0m' # No Color
 BOLD='\033[1m'
+DIM='\033[2m'
 
 # ============================================================================
 # CONFIGURATION
@@ -267,25 +268,42 @@ main() {
         
         # Detect existing Mochimo installations
         print_step "Scanning system for existing Mochimo installations..."
-        MOCHIMO_INSTALLATIONS=$(detect_mochimo_installations)
         
-        if [[ -n "$MOCHIMO_INSTALLATIONS" ]]; then
+        # Get installations as array
+        local installations_raw=$(detect_mochimo_installations)
+        local -a installations_array=()
+        
+        if [[ -n "$installations_raw" ]]; then
+            while IFS= read -r line; do
+                installations_array+=("$line")
+            done <<< "$installations_raw"
+        fi
+        
+        if [[ ${#installations_array[@]} -gt 0 ]]; then
             echo
-            print_success "Found existing Mochimo installation(s):"
-            echo "$MOCHIMO_INSTALLATIONS" | nl -w2 -s'. '
-            echo
-            echo "0. Install a fresh Mochimo service instance"
+            print_success "Found ${#installations_array[@]} existing Mochimo installation(s):"
             echo
             
-            read -p "$(echo -e ${CYAN}"Select installation to use (0-N): "${NC})" selection
+            # Display installations with proper numbering
+            display_mochimo_installations "${installations_array[@]}"
+            
+            echo -e " ${CYAN}0.${NC} ${WHITE}Install a fresh Mochimo service instance${NC}"
+            echo
+            
+            local max_selection=${#installations_array[@]}
+            read -p "$(echo -e ${CYAN}"Select installation to use [0-${max_selection}]: "${NC})" selection
             
             if [[ "$selection" == "0" ]]; then
                 # Install fresh Mochimo instance
+                echo
                 print_step "Installing fresh Mochimo node..."
                 MOCHIMO_PATHS=$(install_fresh_mochimo)
-            else
+            elif [[ "$selection" =~ ^[0-9]+$ ]] && [[ $selection -ge 1 ]] && [[ $selection -le $max_selection ]]; then
                 # Use existing installation
-                MOCHIMO_PATHS=$(echo "$MOCHIMO_INSTALLATIONS" | sed -n "${selection}p")
+                MOCHIMO_PATHS="${installations_array[$((selection-1))]}"
+            else
+                print_error "Invalid selection: $selection"
+                exit 1
             fi
         else
             print_warning "No existing Mochimo installation found"
@@ -392,17 +410,24 @@ main() {
     if ask_yes_no "Would you like to configure HTTPS?" "n"; then
         echo
         
-        # Run certificate configuration
-        if cert_output=$(configure_https_certificates 2>&1); then
-            # Parse output
-            while IFS= read -r line; do
-                if [[ "$line" =~ ^CERT_FILE=(.+)$ ]]; then
-                    CERT_FILE="${BASH_REMATCH[1]}"
-                elif [[ "$line" =~ ^KEY_FILE=(.+)$ ]]; then
-                    KEY_FILE="${BASH_REMATCH[1]}"
-                fi
-            done <<< "$cert_output"
+        # Create temporary file for certificate configuration results
+        local cert_result_file=$(mktemp)
+        
+        # Run certificate configuration (fully interactive)
+        if configure_https_certificates "$cert_result_file"; then
+            # Read results from file
+            if [[ -f "$cert_result_file" ]]; then
+                while IFS= read -r line; do
+                    if [[ "$line" =~ ^CERT_FILE=(.+)$ ]]; then
+                        CERT_FILE="${BASH_REMATCH[1]}"
+                    elif [[ "$line" =~ ^KEY_FILE=(.+)$ ]]; then
+                        KEY_FILE="${BASH_REMATCH[1]}"
+                    fi
+                done < "$cert_result_file"
+                rm -f "$cert_result_file"
+            fi
             
+            echo
             if [[ -n "$CERT_FILE" && -n "$KEY_FILE" ]]; then
                 print_success "HTTPS configured successfully"
                 print_info "Certificate: $CERT_FILE"
@@ -411,6 +436,8 @@ main() {
                 print_warning "Certificate configuration incomplete"
             fi
         else
+            rm -f "$cert_result_file"
+            echo
             print_warning "HTTPS configuration skipped or failed"
             print_info "You can configure HTTPS later by editing server.yml"
         fi

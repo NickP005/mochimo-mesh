@@ -240,6 +240,8 @@ setup_cert_renewal() {
 
 # Main certificate configuration function
 configure_https_certificates() {
+    local result_file="$1"
+    
     print_header "HTTPS/TLS CERTIFICATE CONFIGURATION"
     
     echo
@@ -326,9 +328,11 @@ configure_https_certificates() {
         if cert_info=$(generate_letsencrypt_cert "$domain"); then
             IFS='|' read -r domain cert_file key_file expiry <<< "$cert_info"
             
-            # Return certificate paths
-            echo "CERT_FILE=$cert_file"
-            echo "KEY_FILE=$key_file"
+            # Write certificate paths to result file
+            if [[ -n "$result_file" ]]; then
+                echo "CERT_FILE=$cert_file" > "$result_file"
+                echo "KEY_FILE=$key_file" >> "$result_file"
+            fi
             return 0
         else
             return 1
@@ -343,9 +347,11 @@ configure_https_certificates() {
         print_info "Certificate: $cert_file"
         print_info "Private Key: $key_file"
         
-        # Return certificate paths
-        echo "CERT_FILE=$cert_file"
-        echo "KEY_FILE=$key_file"
+        # Write certificate paths to result file
+        if [[ -n "$result_file" ]]; then
+            echo "CERT_FILE=$cert_file" > "$result_file"
+            echo "KEY_FILE=$key_file" >> "$result_file"
+        fi
         return 0
         
     else
