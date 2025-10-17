@@ -145,6 +145,7 @@ extract_path_from_installation() {
 
 # Copy configuration to system directory
 install_to_system() {
+    local __returnvar=$1
     local install_dir="/opt/meshapi"
     local config_dir="$install_dir/configuration"
     local bin_dir="$install_dir/bin"
@@ -172,7 +173,7 @@ install_to_system() {
     
     print_success "Mesh API installed to $install_dir"
     
-    echo "$install_dir"
+    eval $__returnvar="$install_dir"
 }
 
 # Source utility scripts
@@ -519,7 +520,7 @@ main() {
             if [[ "$install_type" == "2" ]]; then
                 print_step "Performing system-wide installation..."
                 SYSTEM_INSTALL=true
-                INSTALL_LOCATION=$(install_to_system)
+                install_to_system INSTALL_LOCATION
                 echo
             fi
             
