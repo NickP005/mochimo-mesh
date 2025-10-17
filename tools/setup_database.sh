@@ -261,8 +261,8 @@ setup_database_interactive() {
         print_info "You can apply it later using: mysql -u$db_user -p $db_name < $SCHEMA_FILE"
     fi
     
-    # Return config as formatted string
-    echo "true|$db_host|$db_port|$db_user|$db_password|$db_name"
+    # Set config as formatted string
+    DB_CONFIG="true|$db_host|$db_port|$db_user|$db_password|$db_name"
     return 0
 }
 
