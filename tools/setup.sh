@@ -358,8 +358,9 @@ main() {
         echo
         
         # Database configuration
-        DB_CONFIG=$(setup_database_interactive) || true
-        
+        DB_CONFIG=""
+        setup_database_interactive
+
         if [[ -n "$DB_CONFIG" && "$DB_CONFIG" != "false" ]]; then
             print_success "Indexer configured"
         else
