@@ -138,10 +138,11 @@ verify_database_connection() {
     local db_port=$(grep "^indexer_port:" "$config_file" | awk '{print $2}')
     local db_user=$(grep "^indexer_user:" "$config_file" | awk '{print $2}' | tr -d '"')
     local db_name=$(grep "^indexer_database:" "$config_file" | awk '{print $2}' | tr -d '"')
-    
+    local db_password=$(grep "^indexer_password:" "$config_file" | awk '{print $2}' | tr -d '"')
+
     # Note: password should be in environment variable for security
-    local db_password="${MCM_DB_PASSWORD:-}"
-    
+    db_password="${MCM_DB_PASSWORD:-$db_password}"
+
     if test_mysql_connection "$db_host" "$db_port" "$db_user" "$db_password" "$db_name"; then
         print_success "Database connection successful"
         

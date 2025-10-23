@@ -12,9 +12,18 @@
 
 SCHEMA_FILE="$PROJECT_ROOT/indexer/TABLE_SCHEMA.sql"
 
+mysql_fix_host() {
+    local host="$1"
+    # Force TCP connection: mysql/mariadb will try to connect via
+    # local UNIX socket if -hlocalhost is used, which will fail in
+    # case a database server is running in a docker container.
+    [[ "$host" == "localhost" ]] && host="127.0.0.1"
+    echo "$host"
+}
+
 # Test MySQL connection
 test_mysql_connection() {
-    local host="$1"
+    local host="$(mysql_fix_host "$1")"
     local port="$2"
     local user="$3"
     local password="$4"
@@ -45,7 +54,7 @@ test_mysql_connection() {
 
 # Check if database exists
 database_exists() {
-    local host="$1"
+    local host="$(mysql_fix_host "$1")"
     local port="$2"
     local user="$3"
     local password="$4"
@@ -66,7 +75,7 @@ database_exists() {
 
 # Create database
 create_database() {
-    local host="$1"
+    local host="$(mysql_fix_host "$1")"
     local port="$2"
     local user="$3"
     local password="$4"
@@ -94,7 +103,7 @@ create_database() {
 
 # Get list of tables in database
 get_tables() {
-    local host="$1"
+    local host="$(mysql_fix_host "$1")"
     local port="$2"
     local user="$3"
     local password="$4"
@@ -109,7 +118,7 @@ get_tables() {
 
 # Apply database schema
 apply_schema() {
-    local host="$1"
+    local host="$(mysql_fix_host "$1")"
     local port="$2"
     local user="$3"
     local password="$4"
